@@ -1,0 +1,149 @@
+<div id="page-lampiran" class="page-section" style="display:none;">
+  <div class="card shadow-sm border-0">
+    <div class="card-header-custom bg-white border-bottom">
+      <div class="card-title text-primary">
+        <i class="fas fa-print me-2"></i> Pengaturan Lampiran/Pembatas
+      </div>
+    </div>
+    <div class="card-body">
+      
+      <div class="row mb-5 justify-content-center">
+        <div class="col-md-9 text-center">
+          <label class="form-label fw-bold text-muted small">TEKS COVER (RATA KANAN)</label>
+          <div class="input-group input-group-lg shadow-sm">
+            <input type="text" id="input-teks-cover" class="form-control fw-bold text-uppercase text-end pe-4" 
+                   placeholder="PILIH BULAN ATAU TULIS MANUAL DI SINI...">
+            <button class="btn btn-primary px-4" onclick="eksekusiCetakCover()">
+              <i class="fas fa-print me-2"></i> CETAK
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-md-6 border-end">
+          <div class="text-center mb-4">
+            <span class="badge bg-light text-primary px-3 py-2 rounded-pill fw-bold border">
+              <i class="fas fa-book me-1"></i> PILIHAN BKU
+            </span>
+          </div>
+          <div class="row g-2 justify-content-center" id="btn-bku-container"></div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="text-center mb-4">
+            <span class="badge bg-light text-danger px-3 py-2 rounded-pill fw-bold border">
+              <i class="fas fa-paperclip me-1"></i> PILIHAN LAMPIRAN
+            </span>
+          </div>
+          <div class="row g-2 justify-content-center" id="btn-lampiran-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /**
+   * INJEKSI MENU & GENERATOR TOMBOL [cite: 2026-02-01, 2026-02-08]
+   */
+  (function() {
+    const bulan = ["JANUARI","FEBRUARI","MARET","APRIL","MEI","JUNI","JULI","AGUSTUS","SEPTEMBER","OKTOBER","NOVEMBER","DESEMBER"];
+    
+    // Injeksi Link Menu ke Sidebar [cite: 2026-02-01]
+    const sidebar = document.querySelector('.sidebar-menu-container');
+    if (sidebar) {
+      const menuHTML = `<a href="javascript:void(0)" onclick="menuClick('page-lampiran', this)" id="link-lampiran"><i class="fas fa-print"></i> Lampiran / Pembatas</a>`;
+      const systemLabel = Array.from(sidebar.querySelectorAll('.menu-label')).find(el => el.textContent === 'System');
+      if (systemLabel) systemLabel.insertAdjacentHTML('beforebegin', menuHTML);
+      else sidebar.insertAdjacentHTML('beforeend', menuHTML);
+    }
+
+    // Generator Tombol [cite: 2026-02-08]
+    const bkuContainer = document.getElementById('btn-bku-container');
+    const lampContainer = document.getElementById('btn-lampiran-container');
+    
+    if (bkuContainer && lampContainer) {
+      bulan.forEach(b => {
+        bkuContainer.innerHTML += `<div class="col-6 col-lg-4"><button class="btn btn-outline-primary btn-sm w-100 py-2 fw-bold" onclick="isiTeksCetak('BKU ${b}')">${b}</button></div>`;
+        lampContainer.innerHTML += `<div class="col-6 col-lg-4"><button class="btn btn-outline-danger btn-sm w-100 py-2 fw-bold" onclick="isiTeksCetak('LAMPIRAN ${b}')">${b}</button></div>`;
+      });
+    }
+  })();
+
+  function isiTeksCetak(val) {
+    const input = document.getElementById('input-teks-cover');
+    input.value = val;
+    input.focus();
+  }
+
+  /**
+   * LOGIKA CETAK DENGAN SETTING INTERNAL [cite: 2026-02-08, 2026-02-13]
+   */
+function eksekusiCetakCover() {
+    const teksVal = document.getElementById('input-teks-cover').value.trim();
+    
+    // 1. KONFIGURASI INTERNAL [cite: 2026-02-13]
+    const marginAtas   = "10mm"; 
+    const marginKanan  = "15mm";
+    const marginBawah  = "20mm";
+    const marginKiri   = "20mm";
+    
+    // Gunakan 250pt jika ingin RAKSASA (Setara tinggi 8-9 cm per baris) [cite: 2026-02-13]
+    const ukuranFontFinal = "30pt"; 
+
+    if (!teksVal) {
+      Swal.fire("Peringatan", "Isi teks cover terlebih dahulu!", "warning");
+      return;
+    }
+
+    const html = `
+      <div id="print-lampiran-wrapper">
+        <style>
+          @page { size: A4; margin: 0; }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
+          
+          /* Pastikan container mengambil seluruh tinggi kertas A4 [cite: 2026-02-13] */
+          .page-cover {
+            width: 210mm; 
+            height: 297mm;
+            display: flex; 
+            align-items: center; 
+            justify-content: flex-end; 
+            background: white; 
+            font-family: 'Arial Black', Gadget, sans-serif; /* Gunakan font yang lebih tebal [cite: 2026-02-13] */
+            padding: ${marginAtas} ${marginKanan} ${marginBawah} ${marginKiri}; 
+          }
+
+          .teks-cover {
+            font-size: ${ukuranFontFinal} !important; /* Paksa ukuran font [cite: 2026-02-13] */
+            font-weight: 900; 
+            font-style: italic;
+            text-align: right; 
+            text-transform: uppercase;
+            color: black; 
+            line-height: 0.9; /* Perkecil jarak antar baris agar tidak boros ruang [cite: 2026-02-13] */
+            white-space: nowrap; /* Mencegah teks turun ke bawah jika terlalu lebar [cite: 2026-02-13] */
+          }
+
+          @media print {
+            body > *:not(#print-lampiran-wrapper) { display: none; }
+            /* Memastikan skala printer tetap 100% jika didukung browser [cite: 2026-02-13] */
+            html, body { width: 210mm; height: 297mm; }
+          }
+        </style>
+        <div class="page-cover">
+          <div class="teks-cover">${teksVal}</div>
+        </div>
+      </div>
+    `;
+    
+    if (typeof cetakKeLayar === "function") {
+      cetakKeLayar(html);
+    } else {
+      const area = document.getElementById('print-area');
+      area.innerHTML = html;
+      setTimeout(() => { window.print(); }, 500);
+    }
+}
+</script>

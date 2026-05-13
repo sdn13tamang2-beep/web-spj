@@ -1,0 +1,61 @@
+<div id="page-pengantar" class="page-section" style="display:none;">
+  <div class="card">
+    <div class="card-header-custom">
+      <div class="card-title"><i class="fas fa-file-export me-2"></i> Surat Pengantar SPJ</div>
+      <div>
+        <button class="btn btn-sm btn-success" onclick="prosesCetakPengantar()">
+          <i class="fas fa-print me-2"></i> Cetak
+        </button>
+      </div>
+    </div>
+    
+    <div class="card-body">
+      <form id="formPengantar" onsubmit="event.preventDefault(); handleSimpanPengantar();">
+        
+        <div class="alert alert-light border small py-2 mb-3">
+          <i class="fas fa-pen me-2"></i>
+          Mode Manual: Isi form di bawah ini lalu klik Cetak. Data tidak diambil dari database.
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Nomor Surat</label>
+            <input type="text" class="form-control" name="nomor" value="400.3.5 / /SDN- / ">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Tanggal Surat</label>
+            <input type="date" class="form-control" name="tanggal">
+          </div>
+
+          <div class="col-md-12">
+            <label class="form-label small fw-bold">Tujuan Surat (Yth...)</label>
+            <input type="text" class="form-control" name="tujuan" value="Kepala Dinas Pendidikan dan Kebudayaan">
+          </div>
+
+          <div class="col-md-12">
+            <label class="form-label small fw-bold">Isi / Perihal</label>
+            <textarea class="form-control" name="isi" rows="3">Laporan Pertanggungjawaban (SPJ) BOSP Tahap Tahun 20</textarea>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Banyaknya</label>
+            <input type="text" class="form-control" name="banyaknya" value="1 (Satu) Berkas">
+          </div>
+
+          <div class="col-md-8">
+            <label class="form-label small fw-bold">Keterangan</label>
+            <input type="text" class="form-control" name="keterangan" value="Dikirim dengan hormat untuk diketahui dan dipergunakan sebagaimana mestinya.">
+          </div>
+        </div>
+
+        <div class="d-grid gap-2 mt-4">
+          <button type="submit" class="btn btn-outline-primary">
+            <i class="fas fa-save me-2"></i> Simpan Arsip (Opsional)
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,2518 @@
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+// --- [KOREKSI] Menerapkan prinsip DRY & memastikan sinkronisasi rumus pada Form, Kuitansi, dan Daftar Terima. ---
+
+function formKeObjek(idForm) {
+  const form = document.getElementById(idForm);
+  if (!form) return {};
+  
+  const formData = new FormData(form);
+  const obj = {};
+  
+  for (let [k, v] of formData.entries()) {
+    if (obj[k]) {
+      if (!Array.isArray(obj[k])) obj[k] = [obj[k]];
+      obj[k].push(v);
+    } else {
+      obj[k] = v;
+    }
+  }
+  return obj;
+}
+
+function getToken() {
+  const el = document.getElementById('globalToken');
+  if (el && el.value) {
+    return el.value;
+  } else {
+    console.error("Token Session Missing!");
+    return ""; 
+  }
+}
+
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebarMenu');
+    const overlay = document.querySelector('.sidebar-overlay');
+
+    sidebar.classList.toggle('active');
+    overlay.classList.toggle('show');
+    
+    // Cegah scroll body saat menu dibuka di mobile
+    if (sidebar.classList.contains('active')) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+  }
+
+  function menuClick(pageId, element) {
+    showPage(pageId, element);
+    if (window.innerWidth <= 768) {
+      toggleSidebar();
+    }
+  }
+
+  var GLOBAL_MASTER = {
+    sekolah: null,
+    guru: [],
+    ttd: [],
+    jenis: [],
+  };
+  
+  var REF_DATA = {
+    guru: [],
+    ttd: [],
+    jenis: [],
+    sekolah: {}
+  };
+
+  const Toast = Swal.mixin({
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+    didOpen: (toast) => {
+      toast.addEventListener('mouseenter', Swal.stopTimer)
+      toast.addEventListener('mouseleave', Swal.resumeTimer)
+    }
+  });
+
+  function showSuccess(pesan) { Toast.fire({ icon: 'success', title: pesan }); }
+  function showError(pesan) { Toast.fire({ icon: 'error', title: pesan }); }
+
+  function showLoading(pesan = 'Sedang memproses...') {
+    Swal.fire({
+      title: pesan,
+      allowOutsideClick: false,
+      didOpen: () => { Swal.showLoading() }
+    });
+  }
+
+  function closeLoading() { Swal.close(); }
+
+  function showPage(pageId, element) {
+    document.querySelectorAll('.page-section').forEach(p => p.style.display = 'none');
+    const target = document.getElementById(pageId);
+    if (target) {
+      target.style.display = 'block';
+      target.style.animation = 'none';
+      target.offsetHeight; 
+      target.style.animation = 'fadeSlideUp 0.4s ease-out forwards';
+    }
+
+    if (element) {
+      document.querySelectorAll('.sidebar a').forEach(l => l.classList.remove('active'));
+      element.classList.add('active');
+    }
+
+    if (pageId === 'page-sekolah') loadSekolah();
+    if (pageId === 'page-guru') loadDaftarGuru();
+    if (pageId === 'page-ttd') loadDaftarTTD();
+    if (pageId === 'page-jenis') loadJenisSurat();
+    if (pageId === 'page-pengantar') loadPengantarData();
+    if (pageId === 'page-kuitansi-umum') loadKuitansiUmumData();
+    if (pageId === 'page-honor') loadDaftarHonor();
+  }
+
+window.addEventListener('load', function() {
+  console.log("App Started...");
+  
+  // [MAGIC: CACHE LOKAL - FASE 1] Pre-warming UI dari localStorage (Mata berkedip 0 detik)
+  const cacheSekolahLokal = localStorage.getItem('CACHE_SEKOLAH');
+  if (cacheSekolahLokal) {
+    try {
+      const dataSekolahLokal = JSON.parse(cacheSekolahLokal);
+      GLOBAL_MASTER.sekolah = dataSekolahLokal;
+      
+      // Tampilkan Nama Kop secara instan (Sesuai UI Baru)
+      const elApp = document.getElementById('appName');
+      if (elApp) elApp.innerText = dataSekolahLokal.kop3 || "DATA SEKOLAH";
+    } catch(e) { console.warn("Cache lokal gagal dibaca."); }
+  }
+
+  google.script.run.withSuccessHandler(function(data) {
+    console.log("Master Data Loaded:", data);
+    GLOBAL_MASTER = data;
+
+    if (data.sekolah) {
+      // [MAGIC: CACHE LOKAL - FASE 3] Simpan/Timpa Brankas Browser dengan data Server terbaru
+      localStorage.setItem('CACHE_SEKOLAH', JSON.stringify(data.sekolah));
+
+      const elApp = document.getElementById('appName');
+      if (elApp) {
+           elApp.innerText = data.sekolah.kop3 || "BELUM ADA NAMA";
+      }
+    }
+
+    loadTabelArsip();
+  }).getAllMasterData(getToken());
+
+  const modals = ['modalGuru', 'modalTTD', 'modalJenis'];
+  modals.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('hidden.bs.modal', function() {
+        const form = el.querySelector('form');
+        if (form) {
+          form.reset();
+          const hidden = form.querySelector('input[type="hidden"]');
+          if (hidden) hidden.value = "";
+          const title = el.querySelector('.modal-title');
+          if (title) title.innerText = title.innerText.replace("Edit", "Tambah");
+        }
+      });
+    }
+  });
+});
+
+  function loadSekolah() {
+    const form = document.getElementById('formSekolah');
+    const isiForm = (data) => {
+      form.namaSekolah.value = data.namaSekolah || '';
+      form.tempatSekolah.value = data.tempatSekolah || '';
+      form.namaKepsek.value = data.namaKepsek || '';
+      form.jabatanKepsek.value = data.jabatanKepsek || 'Kepala Sekolah';
+      form.nipKepsek.value = data.nipKepsek || '';
+      form.pangkatKepsek.value = data.pangkatKepsek || '';
+      form.namaBendahara.value = data.namaBendahara || '';
+      form.nipBendahara.value = data.nipBendahara || '';
+      form.pangkatBendahara.value = data.pangkatBendahara || '';
+      form.kop1.value = data.kop1 || '';
+      form.kop2.value = data.kop2 || '';
+      form.kop3.value = data.kop3 || '';
+      form.kop4.value = data.kop4 || '';
+      form.kop5.value = data.kop5 || '';
+      form.idLogo.value = data.idLogo || '';
+    };
+
+    if (GLOBAL_MASTER.sekolah) {
+      isiForm(GLOBAL_MASTER.sekolah);
+    } else {
+      google.script.run.withSuccessHandler(function(data) {
+        GLOBAL_MASTER.sekolah = data;
+        localStorage.setItem('CACHE_SEKOLAH', JSON.stringify(data)); // Kunci Sinkronisasi Local Cache
+        isiForm(data);
+      }).ambilDataSekolah(getToken());
+    }
+  }
+
+function prosesSimpanSekolah() {
+    showLoading("Menyimpan Data Sekolah...");
+    const dataForm = formKeObjek('formSekolah');
+    const token = getToken();
+
+    google.script.run.withSuccessHandler(function(res) {
+      closeLoading();
+      if (res.success) {
+        showSuccess(res.message);
+        GLOBAL_MASTER.sekolah = null;
+
+        // [MAGIC: CACHE LOKAL] Paksa panggil ulang data dari server untuk perbarui localStorage
+        const btnRefresh = document.querySelector('.card-header-custom .btn-outline-success');
+        if(btnRefresh) {
+            refreshDataSekolah(btnRefresh);
+        } else {
+            // Fallback jika tombol tidak ditemukan di DOM
+            google.script.run.withSuccessHandler(data => {
+                GLOBAL_MASTER.sekolah = data;
+                localStorage.setItem('CACHE_SEKOLAH', JSON.stringify(data));
+            }).ambilDataSekolah(getToken(), true);
+        }
+        
+      } else {
+        showError(res.message);
+      }
+    }).simpanDataSekolah(dataForm, token); 
+  }
+
+function refreshDataSekolah(btn) {
+  const icon = btn.querySelector('i');
+  icon.classList.add('fa-spin');
+
+  google.script.run.withSuccessHandler(function(data) {
+    GLOBAL_MASTER.sekolah = data; 
+    
+    // [MAGIC: CACHE LOKAL] Timpa data lama dengan data baru yang baru saja ditarik
+    localStorage.setItem('CACHE_SEKOLAH', JSON.stringify(data));
+
+    loadSekolah(); 
+    
+    const elApp = document.getElementById('appName');
+    if (elApp) {
+         elApp.innerText = data.kop3 || "BELUM ADA NAMA";
+    }
+    
+    icon.classList.remove('fa-spin'); 
+    showSuccess("Data berhasil diperbaharui.");
+  }).ambilDataSekolah(getToken(), true);
+}
+
+  function _safeShowModal(modalId) {
+    const el = document.getElementById(modalId);
+    if (el) {
+      const modal = bootstrap.Modal.getOrCreateInstance(el);
+      modal.show();
+    } else {
+      console.error("Modal ID tidak ditemukan:", modalId);
+    }
+  }
+
+  function bukaModalGuruBaru() {
+    document.getElementById('formGuru').reset();
+    document.getElementById('idGuruHidden').value = "";
+    document.querySelector('#modalGuru .modal-title').innerText = "Tambah Guru / Staff";
+    _safeShowModal('modalGuru');
+  }
+
+  function editGuru(id) {
+    const guru = GLOBAL_MASTER.guru.find(g => g.id === id);
+    if (!guru) return;
+
+    const f = document.getElementById('formGuru');
+    document.getElementById('idGuruHidden').value = guru.id;
+    f.namaGuru.value = guru.nama;
+    f.nipGuru.value = guru.nip;
+    f.pangkatGuru.value = guru.pangkat;
+    f.jenisGuru.value = guru.jenis;
+
+    if (guru.tglLahir) {
+      const parts = guru.tglLahir.split('/');
+      if (parts.length === 3) f.tglLahirGuru.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+
+    document.querySelector('#modalGuru .modal-title').innerText = "Edit Data Guru";
+    _safeShowModal('modalGuru');
+  }
+
+  function loadDaftarGuru() {
+    const tbody = document.getElementById('tabel-guru-body');
+    const btnHapus = document.getElementById('btnHapusMasal');
+
+    if (btnHapus) btnHapus.style.display = 'none';
+    const cbAll = document.getElementById('checkAllGuru');
+    if (cbAll) cbAll.checked = false;
+
+    const renderTable = (list) => {
+      tbody.innerHTML = '';
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Belum ada data.</td></tr>';
+        return;
+      }
+
+      list.forEach((guru, index) => {
+        tbody.innerHTML += `<tr>
+             <td class="text-center">
+                <input type="checkbox" class="form-check-input cb-guru" value="${guru.id}" onchange="cekStatusHapus()">
+             </td>
+             <td class="text-center">${index + 1}</td>
+             <td class="fw-bold">${guru.nama}</td>
+             <td>${guru.nip}</td>
+             <td>${guru.pangkat}</td>
+             <td><span class="badge bg-info text-dark">${guru.jenis}</span></td>
+             <td class="text-center">
+                 <button class="btn btn-sm btn-outline-warning" onclick="editGuru('${guru.id}')"><i class="fas fa-edit"></i></button> 
+                 <button class="btn btn-sm btn-outline-danger" onclick="hapusGuru('${guru.id}', '${guru.nama}')"><i class="fas fa-trash"></i></button>
+             </td>
+          </tr>`;
+      });
+    };
+
+    if (GLOBAL_MASTER.guru && GLOBAL_MASTER.guru.length > 0) renderTable(GLOBAL_MASTER.guru);
+    else {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Memuat...</td></tr>';
+      google.script.run.withSuccessHandler(function(data) {
+        GLOBAL_MASTER.guru = data;
+        renderTable(data);
+      }).getDaftarGuru(getToken());
+    }
+  }
+
+  function toggleAllGuru(source) {
+    const checkboxes = document.querySelectorAll('.cb-guru');
+    checkboxes.forEach(cb => cb.checked = source.checked);
+    cekStatusHapus();
+  }
+
+  function cekStatusHapus() {
+    const terpilih = document.querySelectorAll('.cb-guru:checked').length;
+    const btn = document.getElementById('btnHapusMasal');
+    const counter = document.getElementById('countHapus');
+
+    if (btn && counter) {
+      if (terpilih > 0) {
+        btn.style.display = 'inline-block';
+        counter.innerText = terpilih;
+      } else {
+        btn.style.display = 'none';
+      }
+    }
+  }
+
+  function konfirmasiHapusMasal() {
+    const checkboxes = document.querySelectorAll('.cb-guru:checked');
+    const listID = Array.from(checkboxes).map(cb => cb.value);
+
+    if (listID.length === 0) return;
+
+    Swal.fire({
+      title: 'Hapus Data Terpilih?',
+      text: `Anda akan menghapus ${listID.length} data guru secara permanen!`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Ya, Hapus Semua!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        showLoading(`Menghapus ${listID.length} data...`);
+        google.script.run.withSuccessHandler(function(res) {
+          closeLoading();
+          if (res.success) {
+            showSuccess(res.message);
+            GLOBAL_MASTER.guru = null;
+            loadDaftarGuru();
+          } else {
+            showError(res.message);
+          }
+        }).hapusGuruBanyak(listID, getToken());
+      }
+    });
+  }
+
+function handleSimpanGuru(e) {
+    e.preventDefault();
+    const isEdit = document.getElementById('idGuruHidden').value !== "";
+
+    showLoading(isEdit ? "Memperbarui..." : "Menyimpan...");
+    
+    const dataForm = formKeObjek('formGuru');
+    const token = getToken();
+
+    const runner = google.script.run.withSuccessHandler(function(res) {
+      closeLoading();
+      if (res.success) {
+        const elModal = document.getElementById('modalGuru');
+        const modal = bootstrap.Modal.getInstance(elModal);
+        if (modal) modal.hide();
+
+        document.getElementById('formGuru').reset();
+        document.getElementById('idGuruHidden').value = "";
+        
+        GLOBAL_MASTER.guru = null;
+        loadDaftarGuru();
+        
+        showSuccess(res.message);
+      } else showError(res.message);
+    });
+
+    if (isEdit) runner.updateGuru(dataForm, token);
+    else runner.tambahGuru(dataForm, token);
+  }
+
+  function hapusGuru(id, nama) {
+    Swal.fire({
+      title: 'Hapus Guru?',
+      text: `Yakin hapus ${nama}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Hapus'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        showLoading("Menghapus...");
+        google.script.run.withSuccessHandler(function(res) {
+          closeLoading();
+          if (res.success) {
+            GLOBAL_MASTER.guru = null;
+            loadDaftarGuru();
+            showSuccess(res.message);
+          } else showError(res.message);
+        }).hapusGuru(id, getToken());
+      }
+    });
+  }
+
+function editTTD(nip) {
+    const ttd = GLOBAL_MASTER.ttd.find(t => t.nip == nip);
+    if (!ttd) return;
+
+    const f = document.querySelector('#modalTTD form');
+    if (f) {
+      f.nipLama.value = ttd.nip;
+      f.namaTTD.value = ttd.nama;
+      f.nipTTD.value = ttd.nip;
+      f.jabatanTTD.value = ttd.jabatan;
+      document.querySelector('#modalTTD .modal-title').innerText = "Edit Pejabat";
+      _safeShowModal('modalTTD'); 
+    }
+  }
+
+function loadDaftarTTD() {
+    const tbody = document.getElementById('tabel-ttd-body');
+    const renderTable = (list) => {
+      tbody.innerHTML = '';
+      if (list.length == 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">Belum ada data.</td></tr>';
+        return;
+      }
+      list.forEach(item => {
+        tbody.innerHTML += `<tr><td>${item.nama}</td><td>${item.nip}</td><td>${item.jabatan}</td><td class="text-center"><button class="btn btn-sm btn-outline-warning" onclick="editTTD('${item.nip}')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-outline-danger" onclick="hapusTTD('${item.nip}')"><i class="fas fa-trash"></i></button></td></tr>`;
+      });
+    };
+    
+    const token = getToken();
+
+    if (GLOBAL_MASTER.ttd && GLOBAL_MASTER.ttd.length > 0) renderTable(GLOBAL_MASTER.ttd);
+    else {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center">Memuat...</td></tr>';
+      google.script.run.withSuccessHandler(data => {
+        GLOBAL_MASTER.ttd = data;
+        renderTable(data);
+      }).getDaftarTTD(token); 
+    }
+  }
+
+function handleSimpanTTD(e) {
+    e.preventDefault();
+    const nipLamaEl = document.getElementById('nipLamaTTD');
+    const isEdit = nipLamaEl && nipLamaEl.value !== "";
+    const token = getToken();
+
+    const dataForm = {};
+    const fd = new FormData(e.target);
+    fd.forEach((value, key) => dataForm[key] = value);
+
+    showLoading("Menyimpan...");
+    
+    const runner = google.script.run.withSuccessHandler(() => {
+      closeLoading();
+      
+      const elModal = document.getElementById('modalTTD');
+      const modal = bootstrap.Modal.getInstance(elModal);
+      if (modal) modal.hide();
+
+      e.target.reset();
+      GLOBAL_MASTER.ttd = null;
+      loadDaftarTTD();
+      showSuccess("Berhasil.");
+    });
+
+    if (isEdit) runner.updateTTD(dataForm, token);
+    else runner.tambahTTD(dataForm, token);         
+  }
+
+function hapusTTD(nip) {
+    Swal.fire({
+      title: 'Hapus Pejabat?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Hapus'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        showLoading("Menghapus...");
+        google.script.run.withSuccessHandler(function(res) {
+          closeLoading();
+          if (res.success) {
+            GLOBAL_MASTER.ttd = null;
+            loadDaftarTTD();
+            showSuccess(res.message);
+          } else showError(res.message);
+        }).hapusTTD(nip, getToken()); 
+      }
+    });
+  }
+
+function editJenis(kode) {
+    const j = GLOBAL_MASTER.jenis.find(x => x.kode == kode);
+    if (!j) return;
+    const f = document.querySelector('#modalJenis form');
+    if (f) {
+      f.kodeLama.value = j.kode;
+      f.kodeJenis.value = j.kode;
+      f.namaJenis.value = j.nama;
+      document.querySelector('#modalJenis .modal-title').innerText = "Edit Jenis Surat";
+      _safeShowModal('modalJenis');
+    }
+  }
+
+function loadJenisSurat() {
+    const tbody = document.getElementById('tabel-jenis-body');
+    const renderTable = (list) => {
+      tbody.innerHTML = '';
+      if (list.length == 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center">Belum ada data.</td></tr>';
+        return;
+      }
+      list.forEach(item => {
+        tbody.innerHTML += `<tr><td class="fw-bold">${item.kode}</td><td>${item.nama}</td><td class="text-center"><button class="btn btn-sm btn-outline-warning" onclick="editJenis('${item.kode}')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-outline-danger" onclick="hapusJenis('${item.kode}')"><i class="fas fa-trash"></i></button></td></tr>`;
+      });
+    };
+
+    const token = getToken(); 
+
+    if (GLOBAL_MASTER.jenis && GLOBAL_MASTER.jenis.length > 0) renderTable(GLOBAL_MASTER.jenis);
+    else {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center">Memuat...</td></tr>';
+      google.script.run.withSuccessHandler(data => {
+        GLOBAL_MASTER.jenis = data;
+        renderTable(data);
+      }).getJenisSurat(token); 
+    }
+  }
+
+function handleSimpanJenis(e) {
+e.preventDefault();
+const kodeLamaEl = document.getElementById('kodeLamaJenis');
+const isEdit = kodeLamaEl && kodeLamaEl.value !== "";
+const token = getToken();
+
+const form = e.target;
+const dataForm = {};
+const fd = new FormData(form);
+for (let [k, v] of fd.entries()) {
+    dataForm[k] = v;
+}
+
+showLoading("Menyimpan...");
+
+const runner = google.script.run.withSuccessHandler(() => {
+  closeLoading();
+  
+  const elModal = document.getElementById('modalJenis');
+  const modal = bootstrap.Modal.getInstance(elModal);
+  if (modal) modal.hide();
+
+  e.target.reset();
+  GLOBAL_MASTER.jenis = null;
+  loadJenisSurat(); 
+  showSuccess("Berhasil.");
+});
+
+if (isEdit) runner.updateJenisSurat(dataForm, token); 
+else runner.tambahJenisSurat(dataForm, token);        
+}
+
+function hapusJenis(kode) {
+    Swal.fire({
+      title: 'Hapus Jenis?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Hapus'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        showLoading("Menghapus...");
+        google.script.run.withSuccessHandler(function(res) {
+          closeLoading();
+          if (res.success) {
+            GLOBAL_MASTER.jenis = null;
+            loadJenisSurat();
+            showSuccess(res.message);
+          } else showError(res.message);
+        }).hapusJenisSurat(kode, getToken()); 
+      }
+    });
+  }
+
+  function bukaFormSurat() {
+    document.getElementById('view-surat-tabel').style.display = 'none';
+    document.getElementById('view-surat-form').style.display = 'block';
+    document.getElementById('formSurat').reset();
+    document.getElementById('idEdit').value = "";
+    document.getElementById('container-personil').innerHTML = '';
+    document.getElementById('checkSPPD').checked = false;
+    toggleSPPD();
+    loadFormDependencies();
+  }
+
+  function tutupFormSurat() {
+    document.getElementById('view-surat-form').style.display = 'none';
+    document.getElementById('view-surat-tabel').style.display = 'block';
+  }
+
+  function refreshInputForm() {
+    const btn = document.querySelector('[onclick="refreshInputForm()"] i');
+    if (btn) btn.classList.add('fa-spin');
+
+    const curJenis = document.getElementById('dropdownJenis').value;
+    const curTTD = document.getElementById('dropdownTTD').value;
+
+    google.script.run.withSuccessHandler(function(data) {
+      GLOBAL_MASTER = data;
+      populateFormDropdowns();
+
+      if (curJenis) document.getElementById('dropdownJenis').value = curJenis;
+      if (curTTD) document.getElementById('dropdownTTD').value = curTTD;
+
+      if (btn) btn.classList.remove('fa-spin');
+      showSuccess("Data Master Diperbarui (Input Aman).");
+ }).getAllMasterData(getToken());
+  }
+
+  function resetFormManual() {
+    Swal.fire({
+      title: 'Kosongkan Form?',
+      text: "Semua isian akan dihapus (kecuali settingan default).",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Ya, Kosongkan',
+      cancelButtonText: 'Batal'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        document.getElementById('formSurat').reset();
+        document.getElementById('idEdit').value = "";
+        document.getElementById('container-personil').innerHTML = '';
+        populateFormDropdowns();
+        document.getElementById('checkSPPD').checked = false;
+        toggleSPPD();
+        showSuccess("Form telah dikosongkan.");
+      }
+    });
+  }
+
+  function loadFormDependencies() {
+    if (!GLOBAL_MASTER.guru || GLOBAL_MASTER.guru.length === 0) {
+      google.script.run.withSuccessHandler(function(data) {
+        GLOBAL_MASTER = data;
+        populateFormDropdowns();
+      }).getAllMasterData(getToken());
+    } else populateFormDropdowns();
+  }
+
+  function populateFormDropdowns() {
+    REF_DATA.guru = GLOBAL_MASTER.guru.map(g => {
+      return {
+        label: `${g.nama} (${g.jenis})`,
+        detail: `NIP: ${g.nip}`,
+        value: JSON.stringify({
+          id: g.id,
+          nama: g.nama,
+          nip: g.nip,
+          pangkat: g.pangkat,
+          jenis: g.jenis
+        })
+      };
+    });
+
+    const selJenis = document.getElementById('dropdownJenis');
+    selJenis.innerHTML = '<option value="">- Pilih Jenis Surat -</option>';
+    GLOBAL_MASTER.jenis.forEach(j => {
+      selJenis.innerHTML += `<option value="${j.kode}">${j.nama}</option>`;
+    });
+
+    const selTTD = document.getElementById('dropdownTTD');
+    selTTD.innerHTML = '<option value="">- Pilih Pejabat -</option>';
+    GLOBAL_MASTER.ttd.forEach(t => {
+      selTTD.innerHTML += `<option value="${t.nama}">${t.nama} (${t.jabatan})</option>`;
+    });
+
+    const inputTempat = document.getElementById('inputTempatBerangkat');
+    if (GLOBAL_MASTER.sekolah) inputTempat.value = GLOBAL_MASTER.sekolah.tempatSekolah || '';
+
+    const inputAnggaran = document.querySelector('input[name="bebanAnggaran"]');
+    if (inputAnggaran && GLOBAL_MASTER.sekolah) {
+      if (inputAnggaran.value.trim() === "") {
+        inputAnggaran.value = "Dana BOS " + (GLOBAL_MASTER.sekolah.namaSekolah || "");
+      }
+    }
+
+    const container = document.getElementById('container-personil');
+    if (container.children.length === 0) { 
+      container.innerHTML = '';
+      addPersonilRow(true);
+    }
+  }
+
+
+  function addPersonilRow(isKetua = false) {
+    const container = document.getElementById('container-personil');
+    const index = container.children.length + 1;
+    const label = isKetua ? '<span class="badge bg-primary">Ketua</span>' : `<span class="badge bg-secondary">Pengikut ${index-1}</span>`;
+
+    const btnHapus = isKetua ? '' : `<button type="button" class="btn btn-outline-danger" onclick="this.closest('.row').remove(); hitungTotal();"><i class="fas fa-times"></i></button>`;
+
+    let optionsGuru = '<option value="">- Pilih Personil -</option>';
+    REF_DATA.guru.forEach(g => optionsGuru += `<option value='${g.value}'>${g.label}</option>`);
+
+    const div = document.createElement('div');
+    div.className = 'row g-2 mb-2 align-items-center border-bottom pb-2';
+
+    div.innerHTML = `
+      <div class="col-md-1 text-center">${label}</div>
+      
+      <div class="col-md-4">
+         <select class="form-select form-select-sm" name="dataPersonil[]" required onchange="fillPersonDetails(this)">${optionsGuru}</select>
+      </div>
+      
+      <div class="col-md-3">
+         <input type="text" class="form-control form-control-sm border-primary" name="peranPersonil[]" placeholder="Jabatan/Peran">
+      </div>
+
+      <div class="col-md-3">
+         <input type="text" class="form-control form-control-sm bg-light" name="displayNIP[]" placeholder="NIP" readonly>
+      </div>
+      
+      <div class="col-md-1 text-end">${btnHapus}</div>
+    `;
+
+    container.appendChild(div);
+    hitungTotal();
+  }
+
+  function fillPersonDetails(selectElem) {
+    const row = selectElem.closest('.row');
+    const inputNIP = row.querySelector('input[name="displayNIP[]"]');
+
+    if (selectElem.value) {
+      const data = JSON.parse(selectElem.value);
+      inputNIP.value = data.nip;
+    } else {
+      inputNIP.value = '';
+    }
+  }
+
+  function toggleSPPD() {
+    const isChecked = document.getElementById('checkSPPD').checked;
+    document.getElementById('blok-perjalanan').style.display = isChecked ? 'block' : 'none';
+    document.getElementById('blok-sppd').style.display = isChecked ? 'block' : 'none';
+  }
+
+  function hitungLama() {
+    const tglA = document.getElementById('tglBerangkat').value;
+    const tglB = document.getElementById('tglKembali').value;
+    const output = document.getElementById('lamaHari');
+    if (tglA && tglB) {
+      const diffTime = Math.abs(new Date(tglB) - new Date(tglA));
+      output.value = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    } else output.value = '';
+    hitungTotal();
+  }
+
+  // --- [KOREKSI 1] LOGIKA HITUNG TOTAL DI FORM ---
+  function hitungTotal() {
+    const harian = parseFloat(document.getElementById('uangHarian').value) || 0;
+    const transport = parseFloat(document.getElementById('biayaTransport').value) || 0;
+    const akomodasi = parseFloat(document.getElementById('biayaAkomodasi').value) || 0;
+    
+    const hari = parseInt(document.getElementById('lamaHari').value) || 0;
+    const jumlahOrang = document.querySelectorAll('select[name="dataPersonil[]"]').length || 1;
+    
+    // RUMUS SESUAI PERMINTAAN: (Jumlah Orang * Lama) * (Harian + Transport + Akomodasi)
+    // NOTE: Ini menyebabkan Transport & Akomodasi dibayar berulang per hari. Jika salah, perbaiki di sini.
+    const totalAkhir = (jumlahOrang * hari) * (harian + transport + akomodasi);
+    
+    document.getElementById('totalBiaya').value = "Rp " + totalAkhir.toLocaleString('id-ID');
+  }
+
+function handleSimpanSurat(e) {
+    e.preventDefault();
+    const idEdit = document.getElementById('idEdit').value;
+    const mode = idEdit ? "UPDATE" : "BARU";
+
+    Swal.fire({
+      title: mode === "UPDATE" ? "Simpan Perubahan?" : "Simpan Surat?",
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Ya'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        showLoading("Menyimpan...");
+        
+        const dataForm = formKeObjek('formSurat'); 
+        const token = getToken();
+
+        const runner = google.script.run.withSuccessHandler(function(response) {
+          closeLoading();
+          if (response.success) {
+            showSuccess(response.message);
+            
+            document.getElementById('formSurat').reset();
+            document.getElementById('container-personil').innerHTML = '';
+            document.getElementById('idEdit').value = "";
+            
+            tutupFormSurat();
+            loadTabelArsip(true);
+
+          } else showError(response.message);
+        }).withFailureHandler(function(err) {
+          closeLoading();
+          showError("Error: " + err);
+        });
+
+        if (mode === "UPDATE") runner.updateDataSurat(dataForm, token);
+        else runner.simpanSuratBaru(dataForm, token);
+      }
+    });
+  }
+
+  const ROWS_PER_PAGE = 10;
+  let CURRENT_PAGE = 1;
+  let CACHE_DATA_SURAT = [];
+  let DATA_TERFILTER = [];
+
+  function loadTabelArsip(isSilent = false) { 
+    const tbody = document.getElementById('tabel-arsip-body');
+
+    if (!isSilent) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Memuat arsip...</td></tr>';
+    }
+
+    google.script.run.withSuccessHandler(function(data) {
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Belum ada surat.</td></tr>';
+        document.getElementById('info-halaman').innerText = "";
+        document.getElementById('pagination-container').innerHTML = "";
+        return;
+      }
+
+      CACHE_DATA_SURAT = data.sort((a, b) => {
+        const tglA = a.tglSurat ? a.tglSurat.split('/').reverse().join('') : '';
+        const tglB = b.tglSurat ? b.tglSurat.split('/').reverse().join('') : '';
+        return tglB.localeCompare(tglA);
+      });
+
+      DATA_TERFILTER = CACHE_DATA_SURAT;
+      if (!isSilent) CURRENT_PAGE = 1;
+
+      renderTable();
+    }).getArsipSurat(getToken());
+  }
+
+function refreshArsip(btnElement) {
+    const icon = btnElement.querySelector('i');
+    if (icon) icon.classList.add('fa-spin');
+
+    google.script.run.withSuccessHandler(function(masterData) {
+      console.log("Master Data Refreshed");
+      GLOBAL_MASTER = masterData;
+
+      google.script.run.withSuccessHandler(function(data) {
+        const dataBaru = data || [];
+        CACHE_DATA_SURAT = dataBaru.sort((a, b) => {
+          const tglA = a.tglSurat ? a.tglSurat.split('/').reverse().join('') : '';
+          const tglB = b.tglSurat ? b.tglSurat.split('/').reverse().join('') : '';
+          return tglB.localeCompare(tglA);
+        });
+
+        DATA_TERFILTER = CACHE_DATA_SURAT;
+        renderTable(); 
+
+        if (icon) icon.classList.remove('fa-spin');
+        showSuccess("Data Terupdate."); 
+
+      }).getArsipSurat(getToken()); 
+
+    }).getAllMasterData(getToken()); 
+  }
+
+  function getWarnaJenis(teks) {
+    if (!teks) return 'bg-secondary';
+
+    const warna = [
+      'bg-primary', 'bg-success', 'bg-danger', 'bg-warning text-dark', 'bg-info text-dark', 
+      'bg-indigo', 'bg-purple', 'bg-pink', 'bg-orange', 'bg-teal', 'bg-cyan', 'bg-lime', 
+      'bg-maroon', 'bg-navy', 'bg-gold', 'bg-grape', 'bg-choco' 
+    ];
+
+    let hash = 0;
+    for (let i = 0; i < teks.length; i++) {
+      hash = teks.charCodeAt(i) + ((hash << 5) - hash);
+    }
+
+    const index = Math.abs(hash) % warna.length;
+    return warna[index];
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('tabel-arsip-body');
+    tbody.innerHTML = '';
+    const start = (CURRENT_PAGE - 1) * ROWS_PER_PAGE;
+    const end = start + ROWS_PER_PAGE;
+    const paginatedItems = DATA_TERFILTER.slice(start, end);
+
+    if (paginatedItems.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Data tidak ditemukan.</td></tr>';
+      renderPagination();
+      return;
+    }
+
+    paginatedItems.forEach((row, index) => {
+      const originalIndex = CACHE_DATA_SURAT.findIndex(x => x.id === row.id);
+      const globalIndex = start + index;
+      const nomorUrut = DATA_TERFILTER.length - globalIndex;
+
+      const badgeClass = getWarnaJenis(row.jenis);
+
+      tbody.innerHTML += `
+         <tr style="cursor:pointer;" ondblclick="lihatDetail(${originalIndex})">
+               <td class="text-center">${nomorUrut}</td>
+               <td class="text-center">
+                   <span class="badge ${badgeClass} fw-normal">${row.jenis}</span>
+               </td>
+               <td>
+                   <div>${row.nomor || 'Draft'}</div>
+                   <div class="fw-bold">${row.tglSurat}</div>
+               </td>
+               <td>${row.ketua}</td>
+               <td><div class="limit-text" title="${row.dasar}">${row.dasar}</div></td>
+               <td><div class="limit-text" title="${row.keperluan}">${row.keperluan}</div></td>
+               <td class="text-center">
+                   <div class="btn-group btn-group-sm">
+                       <button class="btn btn-outline-info" onclick="lihatDetail(${originalIndex})" title="Lihat Detail"><i class="fas fa-eye"></i></button>
+                       <button class="btn btn-outline-warning" onclick="editSurat('${row.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+                       <button class="btn btn-outline-secondary" onclick="cetakSurat('${row.id}')" title="Cetak"><i class="fas fa-print"></i></button>
+                       <button class="btn btn-outline-danger" onclick="hapusSurat('${row.id}')" title="Hapus"><i class="fas fa-trash"></i></button>
+                   </div>
+               </td>
+         </tr>`;
+    });
+    renderPagination();
+  }
+
+  function renderPagination() {
+    const totalRows = DATA_TERFILTER.length;
+    const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
+    const container = document.getElementById('pagination-container');
+
+    document.getElementById('info-halaman').innerText = totalRows > 0 ? `Halaman ${CURRENT_PAGE} dari ${totalPages} (${totalRows} data)` : '0 Data';
+    container.innerHTML = '';
+
+    const prevDis = CURRENT_PAGE === 1 ? 'disabled' : '';
+    container.innerHTML += `<li class="page-item ${prevDis}"><a class="page-link" href="javascript:void(0)" onclick="gantiHalaman(${CURRENT_PAGE - 1})">Prev</a></li>`;
+
+    let startPage = Math.max(1, CURRENT_PAGE - 2);
+    let endPage = Math.min(totalPages, CURRENT_PAGE + 2);
+    for (let i = startPage; i <= endPage; i++) {
+      const active = i === CURRENT_PAGE ? 'active' : '';
+      container.innerHTML += `<li class="page-item ${active}"><a class="page-link" href="javascript:void(0)" onclick="gantiHalaman(${i})">${i}</a></li>`;
+    }
+
+    const nextDis = CURRENT_PAGE === totalPages || totalPages === 0 ? 'disabled' : '';
+    container.innerHTML += `<li class="page-item ${nextDis}"><a class="page-link" href="javascript:void(0)" onclick="gantiHalaman(${CURRENT_PAGE + 1})">Next</a></li>`;
+  }
+
+  function gantiHalaman(page) {
+    const totalPages = Math.ceil(DATA_TERFILTER.length / ROWS_PER_PAGE);
+    if (page < 1 || page > totalPages) return;
+    CURRENT_PAGE = page;
+    renderTable();
+  }
+
+  function filterTabelSurat(input) {
+    const keyword = input.value.toLowerCase();
+    DATA_TERFILTER = CACHE_DATA_SURAT.filter(row => (row.nomor + " " + row.ketua + " " + row.keperluan).toLowerCase().includes(keyword));
+    CURRENT_PAGE = 1;
+    renderTable();
+  }
+
+  // [SENIOR DEVS ADDITION] Fungsi Helper untuk menerjemahkan "Enter" menjadi tag baris baru HTML
+  function nl2br(str) {
+    if (typeof str === 'undefined' || str === null) return '';
+    return String(str).replace(/\n/g, '<br>');
+  }
+
+  function lihatDetail(index) {
+    const data = CACHE_DATA_SURAT[index];
+    if (!data) return;
+
+    const rp = (num) => "Rp " + new Intl.NumberFormat('id-ID').format(num || 0);
+    const ada = (val) => val && val !== "" && val !== "-" && val !== 0 && val !== "0";
+
+    let html = `<div class="container-fluid px-0">`;
+
+    html += `
+       <div class="alert alert-light border mb-3 py-2">
+         <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <span class="badge bg-secondary fw-normal mb-1">${data.jenis}</span>
+              <div class="fs-5">${data.nomor || 'Belum Ada Nomor'}</div>
+            </div>
+            <div class="text-end">
+              <div>Tanggal Surat</div>
+              <div>${data.tglSurat}</div>
+            </div>
+         </div>
+       </div>
+     `;
+
+    html += `
+       <div class="mb-3">
+         <div class="mb-1 text-decoration-underline">Dasar Surat :</div>
+         <div class="mb-3">${nl2br(data.dasar)}</div>
+         
+         <div class="mb-1 text-decoration-underline">Keperluan :</div>
+         <div>${nl2br(data.keperluan)}</div>
+       </div>
+       <hr class="my-3">
+     `;
+
+    if (data.dataLengkap) {
+      try {
+        const p = JSON.parse(data.dataLengkap);
+        if (p.length > 0) {
+          html += `<div class="mb-2 text-primary">Personil Ditugaskan</div>
+                     <ul class="list-group mb-3 shadow-sm">`;
+          p.forEach((x, i) => {
+            const role = i === 0 ? '<span class="badge bg-warning text-dark fw-normal ms-2">Ketua</span>' : '';
+            html += `
+                <li class="list-group-item">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <div>${x.nama} ${role}</div>
+                      <div>${x.nip} - ${x.pangkat || ''}</div>
+                    </div>
+                    <div class="text-end">${x.jabatan || ''}</div>
+                  </div>
+                </li>`;
+          });
+          html += `</ul>`;
+        }
+      } catch (e) {}
+    }
+
+    if (ada(data.tempatBerangkat) || ada(data.tempatTujuan) || ada(data.tglBerangkat)) {
+      html += `<div class="mb-2 text-primary mt-4">Info Perjalanan</div>
+                 <table class="table table-bordered mb-0">`; 
+
+      if (ada(data.tempatBerangkat)) html += `<tr><td width="35%" class="bg-light">Berangkat dari</td><td>${data.tempatBerangkat}</td></tr>`;
+      if (ada(data.tempatTujuan)) html += `<tr><td class="bg-light">Tujuan</td><td>${data.tempatTujuan}</td></tr>`;
+      if (ada(data.tglBerangkat)) html += `<tr><td class="bg-light">Tanggal</td><td>${data.tglBerangkat} s.d ${data.tglKembali}</td></tr>`;
+      if (ada(data.lama)) html += `<tr><td class="bg-light">Lama</td><td>${data.lama} Hari</td></tr>`;
+      if (ada(data.alatAngkut)) html += `<tr><td class="bg-light">Kendaraan</td><td>${data.alatAngkut}</td></tr>`;
+
+      html += `</table>`;
+    }
+
+    if (ada(data.noSPT) || ada(data.noSPPD) || ada(data.ttdNama)) {
+      html += `<div class="mb-2 text-primary mt-4">Administrasi</div>
+                 <table class="table table-bordered mb-0">`;
+
+      if (ada(data.noSPT)) html += `<tr><td width="35%" class="bg-light">Nomor SPT</td><td>${data.noSPT}</td></tr>`;
+      if (ada(data.noSPPD)) html += `<tr><td class="bg-light">Nomor SPPD</td><td>${data.noSPPD}</td></tr>`;
+      if (ada(data.ttdNama)) html += `<tr><td class="bg-light">Pejabat TTD</td><td>${data.ttdNama}<br><span>${data.ttdNip}</span></td></tr>`;
+
+      html += `</table>`;
+    }
+
+    if (ada(data.totalBiaya) || ada(data.anggaran)) {
+      html += `<div class="mb-2 text-primary mt-4">Keuangan</div>
+                 <div class="card bg-light border-0 p-3">`; 
+
+      if (ada(data.anggaran)) html += `<div class="row mb-1"><div class="col-4">Sumber Dana:</div><div class="col-8">${data.anggaran}</div></div>`;
+      if (ada(data.pembayaran)) html += `<div class="row mb-1"><div class="col-4">Pembayaran:</div><div class="col-8">${data.pembayaran}</div></div>`;
+
+      if (ada(data.uangHarian) || ada(data.transport)) {
+        html += `<hr class="my-2">`;
+        if (ada(data.uangHarian)) html += `<div class="row"><div class="col-4">Uang Harian:</div><div class="col-8">${rp(data.uangHarian)}</div></div>`;
+        if (ada(data.transport)) html += `<div class="row"><div class="col-4">Transport:</div><div class="col-8">${rp(data.transport)}</div></div>`;
+      }
+
+      if (ada(data.totalBiaya)) {
+        html += `<hr class="my-2">
+                    <div class="row fs-5"><div class="col-4">TOTAL:</div><div class="col-8 text-success">${rp(data.totalBiaya)}</div></div>`;
+      }
+
+      if (ada(data.noKuitansi) || ada(data.tglKuitansi)) {
+        html += `<div class="mt-2 pt-2 border-top text-end fst-italic">
+                       Kuitansi: ${data.noKuitansi || '-'} (${data.tglKuitansi || '-'})
+                    </div>`;
+      }
+      html += `</div>`;
+    }
+
+    html += `</div>`;
+
+    document.getElementById('detail-content').innerHTML = html;
+
+    const footer = document.querySelector('#modalDetailSurat .modal-footer');
+    footer.innerHTML = `
+     <div class="d-flex w-100 justify-content-between">
+        <button class="btn btn-sm btn-outline-danger" onclick="hapusSurat('${data.id}')"><i class="fas fa-trash me-1"></i> Hapus</button>
+        <div>
+          <button class="btn btn-sm btn-outline-primary me-1" onclick="editSurat('${data.id}'); bootstrap.Modal.getInstance(document.getElementById('modalDetailSurat')).hide();"><i class="fas fa-edit me-1"></i> Edit</button>
+          <button class="btn btn-sm btn-success me-1" onclick="cetakSurat('${data.id}')"><i class="fas fa-print me-1"></i> Cetak</button>
+          <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Tutup</button>
+        </div>
+     </div>
+ `;
+
+    new bootstrap.Modal(document.getElementById('modalDetailSurat')).show();
+  }
+
+  function editSurat(idBaris) {
+    const data = CACHE_DATA_SURAT.find(d => d.id === idBaris);
+    if (!data) return showError("Data tidak ditemukan.");
+    document.getElementById('view-surat-tabel').style.display = 'none';
+    document.getElementById('view-surat-form').style.display = 'block';
+
+    if (!GLOBAL_MASTER.guru || GLOBAL_MASTER.guru.length === 0) {
+      showLoading("Menyiapkan Data...");
+      google.script.run.withSuccessHandler(function(m) {
+        GLOBAL_MASTER = m;
+        closeLoading();
+        populateFormDropdowns();
+        fillFormEdit(data, idBaris);
+      }).getAllMasterData();
+    } else {
+      populateFormDropdowns();
+      fillFormEdit(data, idBaris);
+    }
+  }
+
+
+  function fillFormEdit(data, idBaris) {
+    const f = document.getElementById('formSurat');
+
+    f.idEdit.value = idBaris;
+    f.nomorSurat.value = data.nomor;
+    f.kodeJenis.value = data.jenis;
+
+    const parseDate = (str) => {
+      if (!str) return '';
+      const p = str.split('/');
+      return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : '';
+    };
+
+    f.tglSurat.value = parseDate(data.tglSurat);
+    f.dasarSurat.value = data.dasar;
+    f.keperluan.value = data.keperluan;
+
+    const isSPPD = (data.noSPPD && data.noSPPD !== '-') || (data.totalBiaya && data.totalBiaya !== 0);
+    document.getElementById('checkSPPD').checked = isSPPD;
+    toggleSPPD(); 
+
+    if (isSPPD) {
+      f.noSPT.value = data.noSPT;
+      f.nomorSPPD.value = data.noSPPD;
+      f.alatAngkut.value = data.alatAngkut;
+      f.tempatBerangkat.value = data.tempatBerangkat;
+      f.tempatTujuan.value = data.tempatTujuan;
+      f.tglBerangkat.value = parseDate(data.tglBerangkat);
+      f.tglKembali.value = parseDate(data.tglKembali);
+      f.lamaHari.value = data.lama;
+      f.bebanAnggaran.value = data.anggaran;
+      f.untukPembayaran.value = data.pembayaran;
+      
+      f.uangHarian.value = data.uangHarian;
+      f.biayaTransport.value = data.transport;
+      f.biayaAkomodasi.value = data.akomodasi || 0;
+      
+      f.tglKuitansi.value = parseDate(data.tglKuitansi);
+      f.noKuitansi.value = data.noKuitansi;
+
+      const ttdSelect = document.getElementById('dropdownTTD');
+      for (let i = 0; i < ttdSelect.options.length; i++) {
+        if (ttdSelect.options[i].text.includes(data.ttdNama)) {
+          ttdSelect.selectedIndex = i;
+          break;
+        }
+      }
+    }
+
+    const container = document.getElementById('container-personil');
+    container.innerHTML = ''; 
+
+    if (data.dataLengkap) {
+      try {
+        const personil = JSON.parse(data.dataLengkap);
+        personil.forEach((p, idx) => {
+          addPersonilRow(idx === 0);
+
+          const rows = container.querySelectorAll('.row');
+          const currentRow = rows[rows.length - 1];
+
+          const select = currentRow.querySelector('select[name="dataPersonil[]"]');
+          let found = false;
+
+          for (let opt of select.options) {
+            if (!opt.value) continue;
+            const optData = JSON.parse(opt.value);
+
+            if (p.id && optData.id && p.id === optData.id) {
+              select.value = opt.value;
+              found = true;
+            } 
+            else if (!found) {
+              const nipSurat = String(p.nip || "").trim();
+              const nipMaster = String(optData.nip || "").trim();
+              const namaSurat = String(p.nama || "").trim().toLowerCase();
+              const namaMaster = String(optData.nama || "").trim().toLowerCase();
+              
+              if ((nipSurat === "-" || nipSurat === "") && (nipMaster === "-" || nipMaster === "")) {
+                if (namaSurat === namaMaster) {
+                  select.value = opt.value;
+                  found = true;
+                }
+              } else if (nipSurat === nipMaster && namaSurat === namaMaster) {
+                select.value = opt.value;
+                found = true;
+              }
+            }
+
+            if (found) {
+              fillPersonDetails(select); 
+              break; 
+            }
+          }
+
+          const inputPeran = currentRow.querySelector('input[name="peranPersonil[]"]');
+          if (inputPeran && p.peran) {
+            inputPeran.value = p.peran;
+          }
+        });
+      } catch (e) {
+        console.error("Error parsing personil:", e);
+      }
+    }
+
+    hitungTotal();
+  }
+
+  function hapusSurat(idBaris) {
+    const elModal = document.getElementById('modalDetailSurat');
+    const modalDetail = bootstrap.Modal.getInstance(elModal);
+    if (modalDetail) modalDetail.hide();
+
+    Swal.fire({
+      title: 'Hapus Surat Ini?',
+      text: "Data yang dihapus tidak bisa dikembalikan!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Ya, Hapus!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+
+        const indexLama = CACHE_DATA_SURAT.findIndex(x => x.id === idBaris);
+        if (indexLama > -1) {
+          CACHE_DATA_SURAT.splice(indexLama, 1); 
+          DATA_TERFILTER = CACHE_DATA_SURAT; 
+          renderTable(); 
+        }
+
+        google.script.run
+          .withSuccessHandler(function(response) {
+            if (response.success) {
+              console.log("Server delete success");
+            } else {
+              loadTabelArsip(true);
+              showError("Gagal menghapus di server: " + response.message);
+            }
+          })
+          .hapusDataSurat(idBaris, getToken());
+      }
+    });
+  }
+
+  let ID_SURAT_PRINT = null; 
+
+  function cetakSurat(idBaris) {
+    ID_SURAT_PRINT = idBaris; 
+
+    const elModalDetail = document.getElementById('modalDetailSurat');
+    const instanceDetail = bootstrap.Modal.getInstance(elModalDetail);
+    if (instanceDetail) instanceDetail.hide();
+
+    new bootstrap.Modal(document.getElementById('modalPilihCetak')).show();
+  }
+
+  function prosesCetak(jenis) {
+    const surat = CACHE_DATA_SURAT.find(d => d.id === ID_SURAT_PRINT);
+    const sekolah = GLOBAL_MASTER.sekolah;
+
+    if (!surat || !sekolah) {
+      showError("Data belum siap, silahkan klik refresh pada tabel surat.");
+      return;
+    }
+
+    const area = document.getElementById('print-area');
+    area.innerHTML = '';
+
+    const urlLogo = sekolah.idLogo ? `https://lh3.googleusercontent.com/d/${sekolah.idLogo}` : '';
+
+const buildKop = () => `
+<div class="kop-surat">
+${urlLogo ? `<img src="${urlLogo}" class="kop-logo" referrerpolicy="no-referrer">` : ''}
+<div class="kop-teks">
+<div class="kop-baris-1">${sekolah.kop1}</div>
+<div class="kop-baris-2">${sekolah.kop2}</div>
+<div class="kop-baris-3">${sekolah.kop3}</div>
+<div class="kop-baris-4">${sekolah.kop4}</div>
+<div class="kop-baris-5">${sekolah.kop5}</div>
+</div>
+</div>`;
+
+    const rp = (n) => "Rp " + new Intl.NumberFormat('id-ID').format(n || 0);
+
+    const fmtTgl = (d) => {
+      if (!d || d === "" || d === "-" || d === "undefined" || d === null) return "";
+
+      let t, b, y;
+      if (d.includes('-')) {
+        [y, b, t] = d.split('-');
+      } else if (d.includes('/')) {
+        [t, b, y] = d.split('/');
+      } else {
+        return "";
+      } 
+
+      if (isNaN(t) || isNaN(b) || isNaN(y)) return "";
+
+      const bln = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+      const indexBulan = parseInt(b) - 1;
+      if (indexBulan < 0 || indexBulan > 11) return "";
+
+      return `${parseInt(t)} ${bln[indexBulan]} ${y}`;
+    };
+
+    let personil = [];
+    try {
+      personil = JSON.parse(surat.dataLengkap);
+    } catch (e) {
+      personil = [];
+    }
+
+    const ketuaNama = personil.length > 0 ? personil[0].nama : "-";
+    const ketuaNip = personil.length > 0 ? personil[0].nip : "-";
+    const ketuaPangkat = personil.length > 0 ? personil[0].pangkat : "-";
+
+    const getJabatanFinal = (p) => {
+      if (p.peran && p.peran !== "") {
+        return p.peran;
+      }
+      if (p.jabatan && p.jabatan !== "" && p.jabatan !== "-") {
+        return p.jabatan;
+      }
+      return p.jenis || p.pangkat;
+    };
+
+    // ===========================================
+// BAGIAN 1: SURAT TUGAS
+// ===========================================
+if (jenis === 'tugas') {
+    let isiKepada = '';
+
+    if (personil.length === 1) {
+        const p = personil[0];
+        isiKepada = `
+            <table style="width: 100%; border: none; line-height: 1.5;">
+                <tr>
+                    <td width="100px" style="vertical-align: top;">Kepada</td>
+                    <td width="20px" class="text-center" style="vertical-align: top;">:</td>
+                    <td width="100px">Nama</td>
+                    <td width="20px">:</td>
+                    <td><strong>${p.nama}</strong></td>
+                </tr>
+                <tr>
+                    <td></td><td></td>
+                    <td>NIP</td>
+                    <td>:</td>
+                    <td>${p.nip}</td>
+                </tr>
+                <tr>
+                    <td></td><td></td>
+                    <td>Jabatan</td>
+                    <td>:</td>
+                    <td>${getJabatanFinal(p)}</td> 
+                </tr>
+            </table>
+        `;
+    } else {
+        let rows = '';
+        personil.forEach((p, i) => {
+            rows += `<tr>
+                <td class="text-center">${i + 1}</td>
+                <td class="kiri" style="text-align:left; padding-left:8px;">${p.nama}</td>
+                <td>${p.nip}</td>
+                <td class="kiri" style="text-align:left; padding-left:8px;">${getJabatanFinal(p)}</td> 
+            </tr>`;
+        });
+
+        isiKepada = `
+            <table style="width: 100%; margin-bottom: 5px;">
+                <tr>
+                    <td width="100px" style="vertical-align: top;">Kepada</td>
+                    <td width="20px" class="text-center" style="vertical-align: top;">:</td>
+                    <td>Terlampir :</td>
+                </tr>
+            </table>
+            <table class="tabel-garis" style="width:100%; border-collapse: collapse; border: 1px solid black;">
+                <thead>
+                    <tr style="background-color: #f2f2f2;">
+                        <th style="border: 1px solid black;" width="5%">No</th>
+                        <th style="border: 1px solid black;">Nama</th>
+                        <th style="border: 1px solid black;">NIP/NIK/NISN</th>
+                        <th style="border: 1px solid black;">Jabatan/Status</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        `;
+    }
+
+    area.innerHTML = `
+        <div id="tugas-wrapper" style="width: 100%; max-width: 210mm; margin: 0 auto;">
+            <style>
+                /* CSS TAMPILAN LAYAR (PREVIEW) */
+                .tugas-page {
+                    width: 210mm;
+                    min-height: 297mm; /* Gunakan 297mm standar A4 */
+                    padding: 15mm 10mm 5mm 20mm; /* Tampilan padding di layar */
+                    background: white;
+                    font-family: 'Times New Roman', Times, serif;
+                    font-size: 12pt;
+                    color: black;
+                    line-height: 1.5;
+                    box-sizing: border-box;
+                    margin: 0 auto;
+                }
+
+                .tabel-garis td, .tabel-garis th { 
+                    border: 1px solid black !important; 
+                    padding: 5px; 
+                    text-align: center; 
+                }
+
+                /* CSS KHUSUS CETAK (PRINT) - INI YANG MEMPERBAIKI MASALAH ANDA */
+                @media print {
+                    @page { 
+                        size: A4; 
+                        /* Biarkan browser yang mengatur margin setiap halaman cetak */
+                        margin: 15mm 10mm 15mm 20mm; 
+                    }
+                    body { 
+                        margin: 0; 
+                        padding: 0; 
+                        background: white; 
+                        -webkit-print-color-adjust: exact;
+                    }
+                    .modal, .modal-backdrop { display: none !important; }
+                    .tugas-page { 
+                        width: auto; 
+                        min-height: auto;
+                        /* Hapus padding container agar tidak bentrok dengan @page margin */
+                        padding: 0; 
+                        margin: 0;
+                        box-shadow: none; 
+                    }
+                    /* Pastikan baris tabel tidak terpotong di tengah-tengah antar halaman */
+                    tr {
+                        page-break-inside: avoid;
+                    }
+                }
+            </style>
+
+            <div class="tugas-page">
+                ${buildKop()}
+
+                <div class="text-center mb-4" style="margin-top: 40px;">
+                    <u style="font-weight: bold; font-size: 14pt; text-transform: uppercase;">SURAT TUGAS</u>
+                    <div id="print-nomor">Nomor: ${surat.nomor}</div>
+                </div>
+
+                <table style="width: 100%; margin-bottom: 10px;">
+                    <tr>
+                        <td width="100px" style="vertical-align: top;">Dasar</td>
+                        <td width="20px" class="text-center" style="vertical-align: top;">:</td>
+                        <td style="text-align: justify;">${nl2br(surat.dasar)}</td>
+                    </tr>
+                </table>
+
+                <div class="text-center py-3">
+                    <strong style="letter-spacing: 2px;">M E M E R I N T A H K A N</strong>
+                </div>
+
+                <div style="margin-bottom: 15px;">${isiKepada}</div>
+
+                <table style="width: 100%;">
+                    <tr>
+                        <td width="100px" style="vertical-align: top;">Untuk</td>
+                        <td width="20px" class="text-center" style="vertical-align: top;">:</td>
+                        <td style="text-align: justify;">${nl2br(surat.keperluan)}</td>
+                    </tr>
+                </table>
+
+                <div style="margin-top: 25px;">
+                    <p style="text-align: justify;">Demikian Surat Tugas ini dibuat dengan sebenarnya, agar dapat diketahui dan dilaksanakan dengan penuh tanggungjawab.</p>
+                    
+                    <table style="width: 100%; border: none; margin-top: 20px; page-break-inside: avoid;">
+                        <tr>
+                            <td width="55%"></td>
+                            <td width="45%">
+                                <div>${sekolah.tempatSekolah}, ${fmtTgl(surat.tglSurat)}</div>
+                                <div style="margin-bottom: 60px;">Kepala Sekolah</div>
+                                <u style="font-weight: bold;">${sekolah.namaKepsek || '-'}</u>
+                                <div>NIP. ${sekolah.nipKepsek || '-'}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+
+      setTimeout(() => {
+        const wrapper = document.getElementById('tugas-wrapper');
+        const maxH = 1080;
+        const currentH = wrapper.scrollHeight; 
+
+        if (currentH > maxH) {
+          let zoomLevel = maxH / currentH;
+          wrapper.style.zoom = zoomLevel;
+          console.log("Surat Tugas Auto-Zoom applied: " + zoomLevel);
+        }
+      }, 300);
+    }
+
+    // ===========================================
+    // BAGIAN 2: LEMBAR SPPD
+    // ===========================================
+    else if (jenis === 'sppd') {
+      const mataAnggaran = surat.anggaran || '-';
+      const instansi = sekolah.namaSekolah;
+
+      let contentNama = '';
+      let contentLahir = '';
+      let contentKet = '';
+      const itemStyle = 'margin-bottom: 2px; line-height: 1.15;';
+
+      if (personil.length > 1) {
+        const pengikut = personil.slice(1);
+        const listGuru = pengikut.filter(p => p.jenis !== 'Siswa');
+        const listSiswa = pengikut.filter(p => p.jenis === 'Siswa');
+
+        let noUrut = 1;
+
+        listGuru.forEach(p => {
+          const dataMaster = GLOBAL_MASTER.guru.find(g => g.id === p.id) || GLOBAL_MASTER.guru.find(g => g.nip == p.nip);
+          const tglLahir = dataMaster ? fmtTgl(dataMaster.tglLahir) : '-';
+          const ket = p.peran || p.jabatan || p.jenis;
+
+          contentNama += `<div style="${itemStyle}">${noUrut}. ${p.nama}</div>`;
+          contentLahir += `<div style="${itemStyle}">${tglLahir}</div>`;
+          contentKet += `<div style="${itemStyle}">${ket}</div>`;
+          noUrut++;
+        });
+
+        if (listSiswa.length > 0) {
+          if (listSiswa.length === 1) {
+            const s = listSiswa[0];
+            const dataMaster = GLOBAL_MASTER.guru.find(g => g.id === s.id);
+            const tglLahir = dataMaster ? fmtTgl(dataMaster.tglLahir) : '-';
+
+            contentNama += `<div style="${itemStyle}">${noUrut}. ${s.nama}</div>`;
+            contentLahir += `<div style="${itemStyle}">${tglLahir}</div>`;
+            contentKet += `<div style="${itemStyle}">Siswa / Peserta</div>`;
+          } else {
+            contentNama += `<div style="${itemStyle}">${noUrut}. Tim Siswa / Peserta Didik</div>`;
+            contentLahir += `<div style="${itemStyle}">-</div>`;
+            contentKet += `<div style="${itemStyle}">Sebanyak ${listSiswa.length} Orang</div>`;
+          }
+        }
+      } else {
+        contentNama = '-';
+        contentLahir = '-';
+        contentKet = '-';
+      }
+
+      const barisPengikutData = `
+          <tr>
+            <td style="border-right: 1px solid black; vertical-align: top;"></td> 
+            <td class="kiri" style="vertical-align: top; padding: 4px 5px; text-align: left;">${contentNama}</td>
+            <td class="text-center" style="vertical-align: top; padding: 4px 5px;">${contentLahir}</td>
+            <td class="text-center" style="vertical-align: top; padding: 4px 5px;">${contentKet}</td>
+          </tr>`;
+
+      area.innerHTML = `
+         <div id="sppd-wrapper" style="width: 210mm; margin: 0 auto;">
+           <style>
+             @page { size: A4; margin: 0; }
+             * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
+             
+             .sppd-page {
+               width: 210mm;
+               min-height: 285mm; 
+               padding: 10mm 10mm 5mm 20mm;
+               background: white;
+               font-family: 'Times New Roman', Times, serif;
+               font-size: 10pt;
+               color: black;
+               line-height: 1.15; 
+               position: relative;
+               overflow: hidden; 
+             }
+
+             .tabel-garis { width: 100%; border-collapse: collapse; margin-bottom: 0; table-layout: fixed; }
+             .tabel-garis td, .tabel-garis th { border: 1px solid black !important; padding: 3px 5px; vertical-align: top; word-wrap: break-word; }
+             .text-center { text-align: center; }
+             .kiri { text-align: left; }
+
+             @media print {
+               body { margin: 0; padding: 0; width: 100%; height: 100%; background: white; visibility: visible; }
+               .modal, .modal-backdrop { display: none !important; }
+               #sppd-wrapper { margin: 0; border: none; box-shadow: none; page-break-after: avoid; }
+               body > *:not(#sppd-wrapper) { display: none; }
+             }
+           </style>
+           
+           <div class="sppd-page">
+             ${buildKop()}
+
+             <div style="width: 100%; display: flex; justify-content: flex-end; margin-top: 10px;">
+                <table style="border-collapse: collapse; font-size: 9pt; width: auto; min-width: 35%; line-height: 1;">
+                  <tr><td style="padding:0; white-space: nowrap;">Lembar ke</td><td style="padding:0 5px;">:</td><td style="padding:0;">.....................</td></tr>
+                  <tr><td style="padding:0; white-space: nowrap;">Kode No</td><td style="padding:0 5px;">:</td><td style="padding:0;">.....................</td></tr>
+                  <tr><td style="padding:0; white-space: nowrap;">Nomor</td><td style="padding:0 5px;">:</td><td style="padding:0;">${surat.noSPPD || '.....................'}</td></tr>
+                </table>
+             </div>
+
+             <div style="text-align:center; margin-top:15px; margin-bottom:10px; line-height: 1.1;">
+                <div style="font-size:12pt; font-weight:bold; text-decoration:underline">SURAT PERJALANAN DINAS (SPD)</div>
+             </div>
+
+             <table class="tabel-garis">
+                <colgroup>
+                  <col style="width: 5%"> <col style="width: 40%"> <col style="width: 25%"> <col style="width: 30%"> 
+                </colgroup>
+
+                <tr>
+                  <td class="text-center">1.</td>
+                  <td class="kiri">Pejabat Pembuat Komitmen</td>
+                  <td class="kiri" colspan="2">Kepala ${sekolah.namaSekolah}</td>
+                </tr>
+                <tr>
+                  <td class="text-center">2.</td>
+                  <td class="kiri">Nama/NIP Pegawai Yang<br>Melaksanakan Perjalanan Dinas</td>
+                  <td class="kiri" colspan="2"><strong>${ketuaNama}</strong><br>NIP. ${ketuaNip}</td>
+                </tr>
+                <tr>
+                  <td class="text-center">3.</td>
+                  <td class="kiri">a. Pangkat/Gol<br>b. Jabatan<br>c. Tingkat Biaya</td>
+                  <td class="kiri" colspan="2">a. ${ketuaPangkat}<br>b. ${getJabatanFinal(personil.length > 0 ? personil[0] : {})}<br>c. -</td>
+                </tr>
+                <tr>
+                  <td class="text-center">4.</td>
+                  <td class="kiri">Maksud Perjalanan Dinas</td>
+                  <td class="kiri" colspan="2">${nl2br(surat.keperluan)}</td>
+                </tr>
+                <tr>
+                  <td class="text-center">5.</td>
+                  <td class="kiri">Alat Angkut</td>
+                  <td class="kiri" colspan="2">${surat.alatAngkut || 'Kendaraan Umum'}</td>
+                </tr>
+                <tr>
+                  <td class="text-center">6.</td>
+                  <td class="kiri">a. Tempat Berangkat<br>b. Tempat Tujuan</td>
+                  <td class="kiri" colspan="2">a. ${surat.tempatBerangkat}<br>b. ${surat.tempatTujuan}</td>
+                </tr>
+                <tr>
+                  <td class="text-center">7.</td>
+                  <td class="kiri">a. Lama Perjalanan<br>b. Tgl Berangkat<br>c. Tgl Kembali</td>
+                  <td class="kiri" colspan="2">a. ${surat.lama} Hari<br>b. ${fmtTgl(surat.tglBerangkat)}<br>c. ${fmtTgl(surat.tglKembali)}</td>
+                </tr>
+
+                <tr>
+                  <td class="text-center" style="vertical-align:middle;">8.</td>
+                  <td class="kiri">Pengikut : Nama</td>
+                  <td class="text-center">Tanggal Lahir</td>
+                  <td class="text-center">Keterangan</td>
+                </tr>
+                
+                ${barisPengikutData}
+
+                <tr>
+                  <td class="text-center">9.</td>
+                  <td class="kiri">Pembebanan Anggaran<br>a. Instansi<br>b. Akun</td>
+                  <td class="kiri" colspan="2"><br>a. ${instansi}<br>b. ${mataAnggaran}</td>
+                </tr>
+
+                <tr>
+                  <td class="text-center">10.</td>
+                  <td class="kiri">Keterangan Lain-lain</td>
+                  <td class="kiri" colspan="2"></td>
+                </tr>
+             </table>
+             
+             <div style="margin-top: 15px;">
+                <div style="float: right; width: 300px; text-align:left; line-height: 1.15; font-size: 10pt;">
+                  <div>Dikeluarkan di : ${sekolah.tempatSekolah}</div>
+                  <div style="margin-bottom: 5px;">Tanggal : ${fmtTgl(surat.tglSurat)}</div>
+                  <div style="font-weight:bold; margin-bottom: 50px;">Kepala Sekolah</div>
+                  <u style="font-weight: bold;">${sekolah.namaKepsek || '-'}</u>
+                  <div>NIP. ${sekolah.nipKepsek || '-'}</div>
+                </div>
+                <div style="clear:both"></div>
+             </div>
+           </div>
+        </div>`;
+
+      setTimeout(() => {
+        const wrapper = document.getElementById('sppd-wrapper');
+        if (wrapper) {
+            const maxH = 1080;
+            const currentH = wrapper.scrollHeight;
+            if (currentH > maxH) {
+              const zoomLevel = maxH / currentH;
+              wrapper.style.zoom = zoomLevel;
+            }
+        }
+      }, 300);
+    }
+
+// ===========================================
+    // BAGIAN 3: FORMAT VISUM 
+    // ===========================================
+    else if (jenis === 'visum') {
+      const ttdData = GLOBAL_MASTER.ttd.find(t => t.nama === surat.ttdNama);
+      const jabatanLuar = ttdData ? ttdData.jabatan : '..............................';
+      const namaPejabatLuar = surat.ttdNama || '..............................';
+      const nipPejabatLuar = surat.ttdNip || '..............................';
+
+      const htmlVisum = `
+        <div id="visum-wrapper" style="width: 210mm; margin: 0 auto;">
+          <style>
+            @page { size: A4; margin: 0; }
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
+            
+            .visum-page {
+              width: 210mm;
+              min-height: 285mm;
+              padding: 8mm 7mm 5mm 15mm; 
+              background: white;
+              font-family: 'Times New Roman', Times, serif;
+              font-size: 10pt;
+              color: black;
+              position: relative;
+              line-height: 1.15;
+            }
+
+            .visum-container { width: 100%; border-collapse: collapse; border: 1px solid black !important; margin-bottom: 5px; }
+            .visum-container td { border: 1px solid black !important; vertical-align: top; padding: 2px 4px; }
+            
+            /* Class untuk mengontrol properti umum sel */
+            .main-cell { height: auto; min-height: 95px; } 
+            
+            /* Class baru untuk mengontrol lebar kolom kiri dan kanan secara terpisah */
+            .main-cell-left { width: 48%; }
+            .main-cell-right { width: 52%; }
+            
+            .content-table { width: 100%; border-collapse: collapse; }
+            .content-table td { border: none !important; padding: 1px 0 !important; }
+            
+            .col-num { width: 20px; font-weight: bold; vertical-align: top; }
+            .col-label { width: 100px; }
+            .col-sep { width: 10px; text-align: center; }
+            
+            .signature-box { margin-top: 5px; margin-left: 20px; width: 100%; }
+            .ttd-gap { height: 60px; } 
+            
+            /* Pengaturan Responsif untuk ttd-gap-small */
+            .ttd-gap-small { height: 15px; } /* Default: Tampilan Mobile/HP */
+            @media screen and (min-width: 768px) {
+              .ttd-gap-small { height: 60px; } /* Tampilan Desktop/Laptop */
+            }
+            
+            .ttd-name { font-weight: bold; text-decoration: underline; margin-top: 2px; }
+            .italic-note { font-size: 5pt; font-style: italic; margin-top: -2px; margin-bottom: 2px; }
+            
+            .footer-signature-table {
+              width: 100%;
+              margin-top: 10px; 
+              border: none !important;
+            }
+            .footer-signature-table td { border: none !important; padding: 0 !important; vertical-align: top; }
+            
+            /* Class baru untuk kontrol margin bawah Kepala Sekolah */
+            .footer-gap { margin-bottom: 60px; }
+
+            @media print {
+              body { background: white; margin: 0; }
+              .visum-page { page-break-after: avoid; }
+              
+              /* Kunci ukuran ttd menjadi 40px saat dicetak agar muat di kertas A4 */
+              .ttd-gap-small { height: 30px !important; }
+              
+              /* PERLINDUNGAN HALAMAN 2 UNTUK MOBILE PRINT */
+              .footer-signature-table { page-break-inside: avoid !important; } /* Cegah NIP terpotong ke hal 2 */
+              .footer-gap { margin-bottom: 45px !important; } /* Perkecil jarak khusus saat cetak PDF agar aman */
+              .visum-container { margin-bottom: 0px !important; } /* Hilangkan sisa margin tabel */
+            }
+          </style>
+
+          <div class="visum-page">
+            <table class="visum-container">
+              <tr>
+                <td class="main-cell main-cell-left"> </td>
+                <td class="main-cell main-cell-right">
+                  <table class="content-table">
+                    <tr><td class="col-num">I.</td><td class="col-label">Berangkat dari</td><td class="col-sep">:</td><td>${sekolah.tempatSekolah}</td></tr>
+                    <tr><td></td><td colspan="3"><div class="italic-note">(Tempat kedudukan)</div></td></tr>
+                    <tr><td></td><td class="col-label">Ke</td><td class="col-sep">:</td><td>${surat.tempatTujuan}</td></tr>
+                    <tr><td></td><td class="col-label">Pada tanggal</td><td class="col-sep">:</td><td>${fmtTgl(surat.tglBerangkat)}</td></tr>
+                  </table>
+                  <div class="signature-box">
+                    <div>Kepala ${sekolah.namaSekolah}</div>
+                    <div class="ttd-gap"></div> <div class="ttd-name">${sekolah.namaKepsek || '-'}</div>
+                    <div>NIP. ${sekolah.nipKepsek || '-'}</div>
+                  </div>
+                </td>
+              </tr>
+
+              <tr>
+                <td class="main-cell main-cell-left">
+                  <table class="content-table">
+                    <tr><td class="col-num">II.</td><td class="col-label">Tiba di</td><td class="col-sep">:</td><td>${surat.tempatTujuan}</td></tr>
+                    <tr><td></td><td class="col-label">Pada tanggal</td><td class="col-sep">:</td><td>${fmtTgl(surat.tglBerangkat)}</td></tr>
+                    <tr><td colspan="4" style="height: 22px;"></td></tr> 
+                  </table>
+                  <div class="signature-box">
+                    <div>${jabatanLuar}</div>
+                    <div class="ttd-gap"></div>
+                    <div class="ttd-name">${namaPejabatLuar}</div>
+                    <div>NIP. ${nipPejabatLuar}</div>
+                  </div>
+                </td>
+                <td class="main-cell main-cell-right">
+                  <table class="content-table">
+                    <tr><td class="col-num"></td><td class="col-label">Berangkat dari</td><td class="col-sep">:</td><td>${surat.tempatTujuan}</td></tr>
+                    <tr><td></td><td class="col-label">Ke</td><td class="col-sep">:</td><td>${sekolah.tempatSekolah}</td></tr>
+                    <tr><td></td><td class="col-label">Pada Tanggal</td><td class="col-sep">:</td><td>${fmtTgl(surat.tglKembali)}</td></tr>
+                  </table>
+                  <div class="signature-box">
+                    <div>${jabatanLuar}</div>
+                    <div class="ttd-gap"></div>
+                    <div class="ttd-name">${namaPejabatLuar}</div>
+                    <div>NIP. ${nipPejabatLuar}</div>
+                  </div>
+                </td>
+              </tr>
+
+              <tr>
+                <td class="main-cell main-cell-left">
+                  <table class="content-table">
+                    <tr><td class="col-num">III.</td><td class="col-label">Tiba di</td><td class="col-sep">:</td><td>..............................</td></tr>
+                    <tr><td></td><td class="col-label">Pada tanggal</td><td class="col-sep">:</td><td>..............................</td></tr>
+                  </table>
+                  <div class="signature-box"><div class="ttd-gap-small"></div><div class="ttd-name">..............................</div><div>NIP. -</div></div>
+                </td>
+                <td class="main-cell main-cell-right">
+                  <table class="content-table">
+                    <tr><td class="col-num"></td><td class="col-label">Berangkat dari</td><td class="col-sep">:</td><td>..............................</td></tr>
+                    <tr><td></td><td class="col-label">Ke</td><td class="col-sep">:</td><td>..............................</td></tr>
+                  </table>
+                  <div class="signature-box"><div class="ttd-gap-small"></div><div class="ttd-name">..............................</div><div>NIP. -</div></div>
+                </td>
+              </tr>
+
+               <tr>
+                 <td class="main-cell main-cell-left">
+                   <table class="content-table">
+                     <tr><td class="col-num">IV.</td><td class="col-label">Tiba di</td><td class="col-sep">:</td><td>${sekolah.tempatSekolah}</td></tr>
+                     <tr><td></td><td class="col-label">Pada Tanggal</td><td class="col-sep">:</td><td>${fmtTgl(surat.tglKembali)}</td></tr>
+                   </table>
+                   <div class="signature-box">
+                     <div>Kepala ${sekolah.namaSekolah}</div>
+                     <div class="ttd-gap"></div>
+                     <div class="ttd-name">${sekolah.namaKepsek || '-'}</div>
+                     <div>NIP. ${sekolah.nipKepsek || '-'}</div>
+                   </div>
+                 </td>
+                 <td class="main-cell main-cell-right" style="vertical-align: top; padding: 10px; text-align: justify; line-height: 1.1;">
+                   Telah diperiksa, dengan keterangan bahwa perjalanan tersebut di atas benar dilakukan atas perintahnya dan semata-mata untuk kepentingan jabatan dalam waktu yang sesingkat-singkatnya.
+                 </td>
+               </tr>
+
+              <tr><td colspan="2" style="padding: 5px;"><b>V. Catatan lain-lain</b></td></tr>
+              <tr>
+                <td colspan="2" style="padding: 5px;">
+                  <b>VI. PERHATIAN :</b><br>
+                  <div style="text-align: justify; line-height: 1.1; font-size: 9pt;">
+                    PPK yang menerbitkan SPD, pegawai yang melakukan perjalanan dinas, para pejabat yang mengesahkan tanggal berangkat/tiba, serta bendahara Pengeluaran bertanggungjawab berdasarkan peraturan-peraturan Keuangan Negara apabila negara menderita rugi akibat kesalahan, kelalaian, dan kealpaannya.
+                  </div>
+                </td>
+              </tr>
+            </table>
+
+            <table class="footer-signature-table">
+              <tr>
+                <td width="55%"></td>
+                <td width="45%">
+                  <div class="footer-gap">Kepala ${sekolah.namaSekolah}</div>
+                  <div class="ttd-name">${sekolah.namaKepsek || '-'}</div>
+                  <div>NIP. ${sekolah.nipKepsek || '-'}</div>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      `;
+
+      area.innerHTML = htmlVisum;
+
+      setTimeout(() => {
+        const wrapper = document.getElementById('visum-wrapper');
+        const maxContentHeight = 1080;
+        const currentHeight = wrapper.scrollHeight;
+
+        if (currentHeight > maxContentHeight) {
+          const zoomLevel = maxContentHeight / currentHeight;
+          wrapper.style.zoom = zoomLevel;
+          console.log("Visum Overflow Detected. Zoom applied: " + zoomLevel);
+        }
+      }, 300);
+    }
+
+    // ===========================================
+    // BAGIAN 4: FORMAT DAFTAR TERIMA (REVISI DRY)
+    // ===========================================
+    else if (jenis === 'terima') {
+
+      // --- [KOREKSI 2] SINKRONISASI BIAYA ---
+      const harian = parseFloat(surat.uangHarian) || 0;
+      const tr = parseFloat(surat.transport) || 0;
+      const akomodasi = parseFloat(surat.akomodasi) || 0; // KOREKSI: Tambah variabel yang hilang
+      const hari = parseInt(surat.lama) || 0;
+
+      // RUMUS SINKRON DENGAN FORM
+      const totalUangHarian = harian * hari;
+      const totalTr = tr * hari;
+      const totalAkomodasi = akomodasi * hari;
+      const totalPerOrang = totalUangHarian + totalTr + totalAkomodasi;
+      const totalSemua = totalPerOrang * personil.length;
+
+      const rawTglTabel = (surat.tglBerangkat && surat.tglBerangkat !== '-') ? surat.tglBerangkat : surat.tglSurat;
+      const tglTabel = fmtTgl(rawTglTabel);
+      const rawTglKuitansi = (surat.tglKuitansi && surat.tglKuitansi !== '-') ? surat.tglKuitansi : "";
+      const tglTandaTangan = fmtTgl(rawTglKuitansi);
+
+      let rows = '';
+      personil.forEach((p, i) => {
+        rows += `
+             <tr style="page-break-inside: avoid;">
+                <td class="text-center">${i + 1}</td>
+                <td class="kiri" style="padding: 4px 8px;">
+                   <div class="fw-bold">${p.nama}</div>
+                   <div style="font-size: 0.9em;">NIP. ${p.nip}</div>
+                </td>
+                
+                <td class="text-center">${tglTabel}</td>
+                <td class="text-center">${surat.noSPT || '-'}</td>
+                <td class="text-center">${surat.noSPPD || '-'}</td>
+                
+                <td class="text-end">${rp(totalUangHarian)}</td>
+                <td class="text-end">${rp(totalTr)}</td>
+                <td class="text-end">${rp(totalAkomodasi)}</td>
+                <td class="text-end fw-bold">${rp(totalPerOrang)}</td>
+                
+                <td class="text-center" style="vertical-align:middle;">
+                   ${i + 1}................
+                </td>
+             </tr>
+            `;
+      });
+
+      const rowTotal = `
+           <tr class="fw-bold bg-light" style="page-break-inside: avoid;">
+               <td colspan="5" class="text-center">JUMLAH TOTAL</td>
+               <td class="text-end">${rp(totalUangHarian * personil.length)}</td>
+               <td class="text-end">${rp(totalTr * personil.length)}</td>
+               <td class="text-end">${rp(totalAkomodasi * personil.length)}</td>
+               <td class="text-end">${rp(totalSemua)}</td>
+               <td></td>
+           </tr>
+        `;
+
+      area.innerHTML = `
+           <div id="terima-wrapper">
+             <style>
+               @page { 
+                  size: A4 landscape; 
+                  margin: 15mm 5mm 5mm 5mm; 
+               }
+               
+               * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
+               
+               .terima-page {
+                 width: 100%; 
+                 font-family: 'Times New Roman', Times, serif;
+                 font-size: 10pt;
+                 color: black;
+                 line-height: 1.2;
+               }
+               .tabel-terima { 
+                  width: 100%; border-collapse: collapse; 
+                  margin-top: 10px; margin-bottom: 20px;
+               }
+               .tabel-terima thead { display: table-header-group; }
+               .tabel-terima td, .tabel-terima th { 
+                   border: 1px solid black !important; padding: 5px; vertical-align: middle;
+               }
+               .tabel-terima th { background-color: #f0f0f0; text-align: center; font-weight: bold; }
+               
+               .text-center { text-align: center; }
+               .text-end { text-align: right; }
+               .kiri { text-align: left; }
+               .fw-bold { font-weight: bold; }
+               .ttd-wrapper { page-break-inside: avoid; margin-top: 20px; }
+
+               @media print {
+                 body { margin: 0; padding: 0; width: 100%; background: white; visibility: visible; }
+                 .modal, .modal-backdrop, .sidebar, .mobile-topbar { display: none !important; }
+                 #terima-wrapper { width: 100%; }
+                 body > *:not(#terima-wrapper) { display: none; }
+               }
+             </style>
+
+             <div class="terima-page">
+               ${buildKop()}
+
+               <div class="text-center mt-3 mb-2">
+                  <u style="font-weight: bold; font-size: 14pt;">DAFTAR TERIMA</u>
+               </div>
+
+                <table class="tabel-terima">
+                  <colgroup>
+                     <!-- PERINGATAN: Total keseluruhan wajib tepat 100% -->
+                     <col style="width: 4%">  <!-- 1. NO -->
+                     <col style="width: 23%"> <!-- 2. NAMA / NIP -->
+                     <col style="width: 10%">  <!-- 3. TGL BKT -->
+                     <col style="width: 8%">  <!-- 4. NO. SPT -->
+                     <col style="width: 8%">  <!-- 5. NO. SPPD -->
+                     <col style="width: 9%">  <!-- 6. UANG HARIAN -->
+                     <col style="width: 9%">  <!-- 7. TRANSPORT -->
+                     <col style="width: 9%">  <!-- 8. AKOMODASI -->
+                     <col style="width: 10%"> <!-- 9. JUMLAH -->
+                     <col style="width: 10%"> <!-- 10. TANDA TANGAN -->
+                  </colgroup>
+                  <thead>
+                     <tr>
+                        <th rowspan="2">NO</th>
+                        <th rowspan="2">NAMA / NIP</th>
+                        <th rowspan="2">TGL BKT</th>
+                        <th rowspan="2">NO. SPT</th>
+                        <th rowspan="2">NO. SPPD</th>
+                        <th colspan="3">RINCIAN BIAYA</th>
+                        <th rowspan="2">JUMLAH</th>
+                        <th rowspan="2">TANDA TANGAN</th>
+                     </tr>
+                     <tr>
+                        <th>UANG HARIAN<br><small>(${surat.lama} Hr)</small></th>
+                        <th>TRANSPORT<br><small>(${surat.lama} Hr)</small></th>
+                        <th>AKOMODASI<br><small>(${surat.lama} Hr)</small></th>
+                     </tr>
+                  </thead>
+                  <tbody>
+                     ${rows}
+                     ${rowTotal}
+                  </tbody>
+               </table>
+
+               <div class="ttd-wrapper">
+                  <div style="float: right; width: 300px; text-align: left;">
+                     <div>${sekolah.tempatSekolah}, ${tglTandaTangan}</div> 
+                     
+                     <div style="font-weight: bold; margin-bottom: 60px;">Bendahara BOS ${sekolah.namaSekolah}</div>
+                     <u style="font-weight: bold;">${sekolah.namaBendahara || '-'}</u>
+                     <div>NIP. ${sekolah.nipBendahara || '-'}</div>
+                  </div>
+                  <div style="clear: both;"></div>
+               </div>
+             </div>
+           </div>
+         `;
+    }
+
+    // ===========================================
+    // BAGIAN 5: FORMAT KUITANSI (REVISI DRY)
+    // ===========================================
+    else if (jenis === 'kuitansi') {
+
+      const terbilang = (nilai) => {
+        const angka = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
+        let temp = "";
+        if (nilai < 12) temp = " " + angka[nilai];
+        else if (nilai < 20) temp = terbilang(nilai - 10) + " Belas";
+        else if (nilai < 100) temp = terbilang(Math.floor(nilai / 10)) + " Puluh" + terbilang(nilai % 10);
+        else if (nilai < 200) temp = " Seratus" + terbilang(nilai - 100);
+        else if (nilai < 1000) temp = terbilang(Math.floor(nilai / 100)) + " Ratus" + terbilang(nilai % 100);
+        else if (nilai < 2000) temp = " Seribu" + terbilang(nilai - 1000);
+        else if (nilai < 1000000) temp = terbilang(Math.floor(nilai / 1000)) + " Ribu" + terbilang(nilai % 1000);
+        else if (nilai < 1000000000) temp = terbilang(Math.floor(nilai / 1000000)) + " Juta" + terbilang(nilai % 1000000);
+        return temp;
+      };
+
+      // --- [KOREKSI 3] SINKRONISASI BIAYA ---
+      const harian = parseFloat(surat.uangHarian) || 0;
+      const transport = parseFloat(surat.transport) || 0;
+      const akomodasi = parseFloat(surat.akomodasi) || 0;
+      
+      const lamaHari = parseInt(surat.lama) || 0;
+      const jmlOrang = personil.length || 1;
+      
+      const subTotalHarian = harian * lamaHari * jmlOrang;
+      const subTotalTransport = transport * lamaHari * jmlOrang; // KOREKSI: Tambah pengali lamaHari
+      const subTotalAkomodasi = akomodasi * lamaHari * jmlOrang; // KOREKSI: Tambah pengali lamaHari
+      
+      const grandTotal = subTotalHarian + subTotalTransport + subTotalAkomodasi;
+      const teksTerbilang = (terbilang(grandTotal) + " Rupiah").trim().replace(/\s+/g, ' ');
+
+      const penerima = personil.length > 0 ? personil[0] : {
+        nama: '.........................',
+        nip: '.........................'
+      };
+
+      area.innerHTML = `
+           <div id="kuitansi-wrapper" style="width: 210mm; margin: 0 auto;">
+             <style>
+               @page { size: A4; margin: 0; }
+               * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
+               
+               .kuitansi-page {
+                 width: 210mm;
+                 min-height: 285mm; 
+                 padding: 15mm 10mm 5mm 20mm;
+                 background: white;
+                 font-family: 'Times New Roman', Times, serif;
+                 font-size: 11pt;
+                 color: black;
+                 line-height: 1.3; 
+                 position: relative;
+                 overflow: hidden; 
+               }
+
+               .judul-kuitansi { text-align: center; font-weight: bold; font-size: 14pt; margin-top: 20px; text-decoration: underline; }
+               .nomor-kuitansi { text-align: center; font-size: 11pt; margin-bottom: 20px; }
+               
+               .tabel-form td { padding: 5px; vertical-align: top; }
+               .label-form { width: 140px; white-space: nowrap; }
+               .titik-dua { width: 10px; text-align: center; }
+               
+               .terbilang-box { 
+                 background-color: #f0f0f0; 
+                 font-weight: bold; 
+                 font-style: italic; 
+                 padding: 8px 10px; 
+                 border: 2px solid black; 
+                 display: inline-block; 
+                 width: 100%;
+               }
+
+               .tabel-rincian { 
+                   width: 100%; 
+                   margin-top: 2px; 
+                   border-collapse: collapse !important; 
+                   border: 1px solid black !important; 
+               }
+               .tabel-rincian th { 
+                   background-color: #e0e0e0; 
+                   text-align: center; 
+                   padding: 8px 5px; 
+                   border: 1px solid black !important; 
+                   font-weight: bold;
+               }
+               .tabel-rincian td { 
+                   padding: 6px 5px; 
+                   border: 1px solid black !important; 
+               }
+               
+               .text-center { text-align: center; }
+               .text-end { text-align: right; }
+               .fw-bold { font-weight: bold; }
+
+               @media print {
+                 body { margin: 0; padding: 0; width: 100%; height: 100%; background: white; visibility: visible; }
+                 .modal, .modal-backdrop { display: none !important; }
+                 #kuitansi-wrapper { margin: 0; border: none; box-shadow: none; page-break-after: avoid; }
+                 body > *:not(#kuitansi-wrapper) { display: none; }
+                 
+                 .tabel-rincian, .tabel-rincian th, .tabel-rincian td { border: 1px solid black !important; }
+               }
+             </style>
+
+             <div class="kuitansi-page">
+               ${buildKop()}
+
+               <div class="judul-kuitansi">KUITANSI</div>
+               <div class="nomor-kuitansi">No. ${surat.noKuitansi || '......../BOS/20.....'}</div>
+
+               <table class="tabel-form" style="width: 100%;">
+                   <tr>
+                      <td class="label-form">Telah terima dari</td>
+                      <td class="titik-dua">:</td>
+                      <td><b>Bendahara BOS ${sekolah.namaSekolah}</b></td>
+                   </tr>
+                   <tr>
+                      <td class="label-form">Uang Sejumlah</td>
+                      <td class="titik-dua">:</td>
+                      <td><div class="terbilang-box"># ${teksTerbilang} #</div></td>
+                   </tr>
+                   <tr>
+                      <td class="label-form">Untuk Pembayaran</td>
+                      <td class="titik-dua">:</td>
+                      <td>${surat.pembayaran || surat.keperluan}</td>
+                   </tr>
+                   <tr>
+                      <td class="label-form">Dibebankan pada</td>
+                      <td class="titik-dua">:</td>
+                      <td>${surat.anggaran || 'Dana BOS'}</td>
+                   </tr>
+               </table>
+
+               <div style="margin-top: 10px; margin-bottom: 1px; font-weight: bold;">Dengan Rincian :</div>
+               
+               
+                <table class="tabel-rincian" style="margin-top: 0px !important;">
+                   <thead>
+                      <tr>
+                          <th width="40%">Uraian</th>
+                          <th width="20%">Harga Satuan</th>
+                          <th width="15%">Volume</th>
+                          <th width="25%">Jumlah</th>
+                      </tr>
+                   </thead>
+                   <tbody>
+                       <tr>
+                          <td>Uang Harian (${lamaHari} Hari)</td>
+                          <td class="text-end">${rp(harian)}</td>
+                          <td class="text-center">${harian > 0 ? jmlOrang + ' Org x ' + lamaHari + ' Hr' : '-'}</td>
+                          <td class="text-end">${rp(subTotalHarian)}</td>
+                       </tr>
+                       <tr>
+                          <td>Biaya Transportasi (${lamaHari} Hari)</td>
+                          <td class="text-end">${rp(transport)}</td>
+                          <td class="text-center">${transport > 0 ? jmlOrang + ' Org x ' + lamaHari + ' Hr' : '-'}</td>
+                          <td class="text-end">${rp(subTotalTransport)}</td>
+                       </tr>
+                       <tr>
+                          <td>Akomodasi / Penginapan (${lamaHari} Hari)</td>
+                          <td class="text-end">${rp(akomodasi)}</td>
+                          <td class="text-center">${akomodasi > 0 ? jmlOrang + ' Org x ' + lamaHari + ' Hr' : '-'}</td>
+                          <td class="text-end">${rp(subTotalAkomodasi)}</td>
+                       </tr>
+                       <tr style="font-weight: bold; background-color: #f9f9f9;">
+                          <td colspan="3" class="text-center">JUMLAH YANG DITERIMA</td>
+                          <td class="text-end" style="font-size: 12pt;">${rp(grandTotal)}</td>
+                       </tr>
+                   </tbody>
+               </table>
+
+               <div style="margin-top: 30px;">
+                 
+                  <div style="width: 100%; display: flex; justify-content: flex-end;">
+                      <div style="width: 40%; text-align: center;">
+                          <div style="margin-bottom: 60px;">Yang menerima,</div>
+                          <u class="fw-bold">${penerima.nama}</u><br>
+                          NIP. ${penerima.nip}
+                      </div>
+                  </div>
+
+              <div style="border-bottom: 1px solid black; margin: 15px 0; width: 100%;"></div>
+
+              <table style="width: 100%; margin-top: 15px; border: none !important;">
+                  <tr>
+                      <td width="50%" style="text-align: center; vertical-align: top; border: none !important; padding: 0;">
+                          <br>
+                              Setuju dibayar / Mengetahui,<br>
+                              Kepala Sekolah
+                              <br><br><br><br>
+                              <u class="fw-bold">${sekolah.namaKepsek || '-'}</u><br>
+                              NIP. ${sekolah.nipKepsek || '-'}
+                          </td>
+                          
+                          <td width="50%" style="text-align: center; vertical-align: top; border: none !important; padding: 0;">
+                              Lunas dibayar<br>
+                              Pada Tanggal, ${fmtTgl(surat.tglKuitansi || surat.tglSurat)}<br>
+                              Bendahara BOS
+                              <br><br><br><br>
+                              <u class="fw-bold">${sekolah.namaBendahara || '-'}</u><br>
+                              NIP. ${sekolah.nipBendahara || '-'}
+                          </td>
+                      </tr>
+                  </table>
+
+               </div>
+             </div>
+           </div>
+        `;
+
+      setTimeout(() => {
+        const wrapper = document.getElementById('kuitansi-wrapper');
+        if (wrapper) {
+            const maxH = 1080;
+            const currentH = wrapper.scrollHeight;
+            if (currentH > maxH) {
+              const zoomLevel = maxH / currentH;
+              wrapper.style.zoom = zoomLevel;
+            }
+        }
+      }, 300);
+    }
+
+    const imgBaru = area.querySelector('.kop-logo');
+    if (imgBaru) {
+      if (imgBaru.complete) {
+        window.print();
+      } else {
+        imgBaru.onload = function() {
+          window.print();
+        };
+        imgBaru.onerror = function() {
+          window.print();
+        };
+      }
+    } else {
+      setTimeout(() => window.print(), 100);
+    }
+  }
+
+  function autoFillPembayaran(element) {
+    const inputPembayaran = document.querySelector('input[name="untukPembayaran"]');
+    if (inputPembayaran) {
+      inputPembayaran.value = element.value;
+    }
+  }
+
+  function konfirmasiReset() {
+    Swal.fire({
+      title: 'HAPUS SEMUA DATA?',
+      text: "Anda akan menghapus seluruh arsip surat. Tindakan ini tidak bisa dibatalkan!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Ya, Lanjut',
+      cancelButtonText: 'Batal'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        Swal.fire({
+          title: 'KONFIRMASI TERAKHIR',
+          html: "Ketik kata <b>RESET</b> (huruf besar) di bawah ini untuk mengonfirmasi penghapusan:",
+          input: 'text',
+          inputAttributes: {
+            autocapitalize: 'off'
+          },
+          showCancelButton: true,
+          confirmButtonText: 'HAPUS SEKARANG',
+          confirmButtonColor: '#d33',
+          showLoaderOnConfirm: true,
+          preConfirm: (ketikan) => {
+            if (ketikan !== 'RESET') {
+              Swal.showValidationMessage('Kata kunci salah! Ketik RESET.');
+            } else {
+              return new Promise((resolve) => {
+                google.script.run.withSuccessHandler((res) => {
+                  resolve(res);
+                }).resetDatabaseTotal(getToken());
+              });
+            }
+          },
+          allowOutsideClick: () => !Swal.isLoading()
+        }).then((resAkhir) => {
+          if (resAkhir.isConfirmed && resAkhir.value.success) {
+            Swal.fire('Terhapus!', resAkhir.value.message, 'success');
+            CACHE_DATA_SURAT = [];
+            DATA_TERFILTER = [];
+            renderTable();
+          } else if (resAkhir.isConfirmed && !resAkhir.value.success) {
+            Swal.fire('Gagal', resAkhir.value.message, 'error');
+          }
+        });
+      }
+    });
+  }
+
+  let DATA_SIAP_IMPORT = [];
+
+  function bukaModalImport() {
+    document.getElementById('inputExcel').value = '';
+    batalImport();
+    _safeShowModal('modalImportGuru');
+  }
+
+  function previewImport() {
+    const rawText = document.getElementById('inputExcel').value;
+    if (!rawText || rawText.trim() === "") {
+      showError("Paste data dulu!");
+      return;
+    }
+
+    const rows = rawText.trim().split('\n');
+    const tbody = document.getElementById('tbody-preview-import');
+    tbody.innerHTML = '';
+    DATA_SIAP_IMPORT = [];
+
+    let validCount = 0;
+
+    rows.forEach((rowStr) => {
+      let cols = rowStr.split('\t');
+      if (cols.length >= 1 && cols[0].trim() !== "") {
+        const nama = cols[0]?.trim() || "";
+        let tgl = cols[1]?.trim() || "";
+        const nip = cols[2]?.trim() || "-";
+        const pangkat = cols[3]?.trim() || "-";
+
+        let jenisRaw = cols[4] ? String(cols[4]).trim() : "";
+        const jenis = jenisRaw !== "" ? jenisRaw : "Lainnya";
+
+        DATA_SIAP_IMPORT.push([nama, tgl, nip, pangkat, jenis]);
+        validCount++;
+
+        tbody.innerHTML += `
+                 <tr>
+                    <td>${validCount}</td>
+                    <td>${nama}</td>
+                    <td>${tgl}</td>
+                    <td>${nip}</td>
+                    <td>${pangkat}</td>
+                    <td><span class="badge bg-info text-dark">${jenis}</span></td>
+                 </tr>
+               `;
+      }
+    });
+
+    if (validCount > 0) {
+      document.getElementById('step-1-import').style.display = 'none';
+      document.getElementById('step-2-import').style.display = 'block';
+    } else {
+      showError("Data tidak terbaca. Pastikan copy dari Excel.");
+    }
+  }
+
+  function batalImport() {
+    document.getElementById('step-2-import').style.display = 'none';
+    document.getElementById('step-1-import').style.display = 'block';
+    DATA_SIAP_IMPORT = [];
+  }
+
+  function eksekusiImport() {
+    if (DATA_SIAP_IMPORT.length === 0) return;
+
+    const btn = document.querySelector('[onclick="eksekusiImport()"]');
+    const orgText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+    btn.disabled = true;
+
+    google.script.run.withSuccessHandler(function(res) {
+      btn.innerHTML = orgText;
+      btn.disabled = false;
+
+      if (res.success) {
+        showSuccess(res.message);
+
+        const elModal = document.getElementById('modalImportGuru');
+        const modal = bootstrap.Modal.getInstance(elModal);
+        if (modal) modal.hide();
+
+        document.getElementById('inputExcel').value = "";
+        batalImport();
+
+        GLOBAL_MASTER.guru = null;
+        loadDaftarGuru();
+      } else {
+        showError(res.message);
+      }
+    }).prosesImportGuru(DATA_SIAP_IMPORT, getToken());
+  }
+</script>

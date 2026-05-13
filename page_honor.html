@@ -1,0 +1,120 @@
+<div id="page-honor" class="page-section" style="display:none;">
+
+  <div id="view-honor-tabel">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header-custom bg-white border-bottom">
+        <div class="card-title text-primary">
+          <i class="fas fa-file-invoice-dollar me-2"></i> Arsip Honorarium
+        </div>
+        <div>
+          <button class="btn btn-primary" onclick="bukaFormHonor()">
+            <i class="fas fa-plus me-2"></i> Buat Honor Baru
+          </button>
+          <button class="btn btn-outline-secondary rounded-circle ms-2" onclick="loadDaftarHonor(true)" title="Refresh">
+             <i class="fas fa-sync-alt"></i>
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th width="5%" class="text-center">No</th>
+                <th width="15%">Tanggal</th>
+                <th width="35%">Uraian Kegiatan</th>
+                <th width="15%" class="text-end">Total Pencairan</th>
+                <th width="15%" class="text-center">No. Kuitansi</th>
+                <th width="15%" class="text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-honor">
+              <tr><td colspan="6" class="text-center py-4">Memuat data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-honor-form" style="display:none;">
+    <div class="card border-primary shadow-sm">
+      <div class="card-header-custom bg-white border-bottom">
+        <div class="d-flex align-items-center">
+          <button class="btn btn-sm btn-light me-3 border" onclick="tutupFormHonor()">
+            <i class="fas fa-arrow-left"></i> Kembali
+          </button>
+          <h5 class="mb-0 text-primary fw-bold"><i class="fas fa-pen-fancy me-2"></i> Form Input Honor</h5>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <form id="formHonor" onsubmit="handleSimpanHonor(event)">
+          <input type="hidden" name="idHonor" id="idHonor">
+
+          <div class="bg-light p-3 rounded-3 mb-4 border">
+            <h6 class="text-primary fw-bold border-bottom pb-2 mb-3">A. Data Kegiatan</h6>
+            <div class="row g-3">
+              <div class="col-6 col-md-3">
+                <label class="form-label small fw-bold text-muted">Tgl Kegiatan</label>
+                <input type="date" class="form-control" name="tglKegiatan">
+              </div>
+              <div class="col-6 col-md-5">
+                <label class="form-label small fw-bold text-muted">No. Kuitansi</label>
+                <input type="text" class="form-control font-monospace" name="noKuitansi" value="BPU .. / BOS / Tahap ./ .." required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-muted">Dibebankan Pada</label>
+                <input type="text" class="form-control" name="sumberDana" value="Dana BOS Pusat " required>
+              </div>
+              <div class="col-md-12">
+                <label class="form-label small fw-bold text-muted">Judul Kegiatan (Header Daftar Terima)</label>
+                <input type="text" class="form-control fw-bold" name="judulKegiatan" value="DAFTAR TERIMA HONORARIUM .." required>
+              </div>
+              <div class="col-md-12">
+                <label class="form-label small fw-bold text-muted">Untuk Pembayaran (Isi Kuitansi)</label>
+                <textarea class="form-control" name="untukPembayaran" rows="2" required>Belanja Jasa Honorarium ..</textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mb-2">
+             <h6 class="text-primary fw-bold mb-0">B. Daftar Penerima</h6>
+             <button type="button" class="btn btn-sm btn-outline-primary" onclick="addHonorRow()">
+               <i class="fas fa-user-plus me-1"></i> Tambah Penerima
+             </button>
+          </div>
+
+          <div class="table-responsive border rounded mb-3">
+             <table class="table table-sm table-bordered mb-0 align-middle">
+               <thead class="table-light text-center small">
+                 <tr>
+                   <th width="35%">Nama Personil</th>
+                   <th width="20%">Honor Bruto (Rp)</th>
+                   <th width="15%">Pajak (%)</th>
+                   <th width="20%">Diterima (Netto)</th>
+                   <th width="10%">Hapus</th>
+                 </tr>
+               </thead>
+               <tbody id="container-penerima-honor"></tbody>
+               <tfoot class="table-light fw-bold">
+                 <tr>
+                   <td colspan="3" class="text-end">TOTAL BERSIH :</td>
+                   <td class="text-end text-primary" id="displayTotalHonor">Rp 0</td>
+                   <td></td>
+                 </tr>
+               </tfoot>
+             </table>
+          </div>
+
+          <div class="d-grid gap-2 mt-4">
+            <button type="submit" class="btn btn-primary btn-lg shadow">
+               <i class="fas fa-save me-2"></i> SIMPAN DATABASE
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+</div>

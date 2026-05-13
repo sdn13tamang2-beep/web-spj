@@ -1,0 +1,340 @@
+<script>
+  // --- VARIABEL LOKAL HONOR ---
+  var CACHE_HONOR = [];
+
+  // --- 1. NAVIGASI ---
+  function bukaFormHonor() {
+    document.getElementById('view-honor-tabel').style.display = 'none';
+    document.getElementById('view-honor-form').style.display = 'block';
+    
+    document.getElementById('formHonor').reset();
+    document.getElementById('idHonor').value = "";
+    document.getElementById('container-penerima-honor').innerHTML = "";
+    document.getElementById('displayTotalHonor').innerText = "Rp 0";
+    document.querySelector('[name="sumberDana"]').value = "Dana BOS Pusat";
+    
+    addHonorRow();
+  }
+
+  function tutupFormHonor() {
+    document.getElementById('view-honor-form').style.display = 'none';
+    document.getElementById('view-honor-tabel').style.display = 'block';
+  }
+
+
+// 1. FUNGSI RENDER (Mandiri - Bertugas mencetak data ke Tabel)
+  function renderTabelHonor(data) {
+    const tbody = document.getElementById('tbody-honor');
+    tbody.innerHTML = "";
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Belum ada data honor.</td></tr>';
+      return;
+    }
+
+    data.forEach((row, index) => {
+      tbody.innerHTML += `
+        <tr>
+          <td class="text-center">${index + 1}</td>
+          <td>${row.tglKegiatan}</td>
+          <td>
+             <div class="fw-bold text-dark text-uppercase">${row.judul}</div>
+             <div class="small text-muted">${row.sumberDana}</div>
+          </td>
+          <td class="text-end fw-bold text-success">
+             Rp ${new Intl.NumberFormat('id-ID').format(row.totalBayar)}
+          </td>
+          <td class="text-center font-monospace small">${row.noKuitansi}</td>
+          <td class="text-center">
+             <button class="btn btn-sm btn-outline-warning" onclick="editHonor('${row.id}')" title="Edit"><i class="fas fa-edit"></i></button>
+             <button class="btn btn-sm btn-outline-secondary" onclick="pilihCetakHonor('${row.id}')" title="Cetak"><i class="fas fa-print"></i></button>
+             <button class="btn btn-sm btn-outline-danger" onclick="hapusHonor('${row.id}')" title="Hapus"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+
+// 2. UPDATE LOAD DATA (Sekarang hanya bertugas ambil data)
+ function loadDaftarHonor(force = false) {
+ if (!force && CACHE_HONOR && CACHE_HONOR.length > 0) {
+      renderTabelHonor(CACHE_HONOR);
+      return;
+    }
+
+ const tbody = document.getElementById('tbody-honor');
+ tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Memuat...</td></tr>';
+
+ google.script.run.withSuccessHandler(function(data) {
+ CACHE_HONOR = data || [];
+ renderTabelHonor(CACHE_HONOR); // Render data dari server
+ })
+ .withFailureHandler(function(err) {
+tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Gagal memuat data: ' + err + '</td></tr>';
+ })
+ .getDaftarHonor(getToken());
+ }
+
+  // --- 3. LOGIKA FORM DINAMIS ---
+  function addHonorRow(data = null) {
+    const container = document.getElementById('container-penerima-honor');
+    let options = '<option value="">- Pilih Guru -</option>';
+    if (GLOBAL_MASTER && GLOBAL_MASTER.guru) {
+      GLOBAL_MASTER.guru.forEach(g => {
+        const val = JSON.stringify({id:g.id, nama:g.nama, nip:g.nip, pangkat:g.pangkat});
+        const isSel = (data && data.id === g.id) ? 'selected' : '';
+        options += `<option value='${val}' ${isSel}>${g.nama}</option>`;
+      });
+    }
+
+    const tr = document.createElement('tr');
+    const valBruto = data ? data.bruto : 0;
+    const valPajak = data ? data.pajakPersen : 0;
+    const valNetto = data ? data.netto : 0;
+
+    tr.innerHTML = `
+      <td><select class="form-select form-select-sm" name="honorPersonil[]" required>${options}</select></td>
+      <td><input type="number" class="form-control form-control-sm text-end" name="honorBruto[]" value="${valBruto}" oninput="hitungRowHonor(this)"></td>
+      <td>
+        <select class="form-select form-select-sm" name="honorPajak[]" onchange="hitungRowHonor(this)">
+           <option value="0" ${valPajak == 0 ? 'selected' : ''}>0%</option>
+           <option value="5" ${valPajak == 5 ? 'selected' : ''}>5% (Gol. III)</option>
+           <option value="15" ${valPajak == 15 ? 'selected' : ''}>15% (Gol. IV)</option>
+           <option value="6" ${valPajak == 6 ? 'selected' : ''}>6% (Non NPWP)</option>
+        </select>
+      </td>
+      <td><input type="text" class="form-control form-control-sm text-end bg-light fw-bold total-netto" value="${valNetto}" readonly></td>
+      <td class="text-center"><button type="button" class="btn btn-sm btn-light text-danger" onclick="this.closest('tr').remove(); hitungTotalSemua();"><i class="fas fa-times"></i></button></td>
+    `;
+    container.appendChild(tr);
+    hitungTotalSemua();
+  }
+
+  function hitungRowHonor(el) {
+    const tr = el.closest('tr');
+    const bruto = parseFloat(tr.querySelector('[name="honorBruto[]"]').value) || 0;
+    const pajak = parseFloat(tr.querySelector('[name="honorPajak[]"]').value) || 0;
+    const netto = bruto - (bruto * (pajak / 100));
+    tr.querySelector('.total-netto').value = netto; 
+    hitungTotalSemua();
+  }
+
+  function hitungTotalSemua() {
+    let total = 0;
+    document.querySelectorAll('.total-netto').forEach(input => total += parseFloat(input.value) || 0);
+    document.getElementById('displayTotalHonor').innerText = "Rp " + new Intl.NumberFormat('id-ID').format(total);
+  }
+
+// --- 4. CRUD ---
+function handleSimpanHonor(e) {
+  e.preventDefault();
+  
+  // 1. Tangkap ID dari input hidden untuk tahu ini mode EDIT atau BARU
+  const idLama = document.getElementById('idHonor').value; 
+  
+  showLoading("Menyimpan...");
+
+  // [PERBAIKAN] Ubah Form HTML menjadi JSON Object
+  const dataForm = formKeObjek('formHonor');
+
+  google.script.run.withSuccessHandler(function(res) {
+    closeLoading();
+    
+    if (res.success) {
+      showSuccess(res.message);
+      tutupFormHonor();
+
+      // --- STRATEGI SILENT UPDATE (Ubah Memori, Bukan Panggil Server) ---
+      if (!idLama) {
+        // Jika BARU: Masukkan data kiriman server ke urutan paling atas array
+        CACHE_HONOR.unshift(res.data);
+      } else {
+        // Jika EDIT: Cari data lama di array, lalu ganti dengan data baru dari server
+        const index = CACHE_HONOR.findIndex(item => item.id === idLama);
+        if (index !== -1) {
+          CACHE_HONOR[index] = res.data;
+        }
+      }
+
+      // Tampilkan perubahan ke tabel secara instan
+      renderTabelHonor(CACHE_HONOR);
+      // -----------------------------------------------------------------
+
+    } else {
+      showError(res.message);
+    }
+  }).simpanDataHonor(dataForm, getToken()); // Kirim Object + Token
+}
+
+  function editHonor(id) {
+    const data = CACHE_HONOR.find(x => x.id === id);
+    if (!data) return;
+    bukaFormHonor();
+    const f = document.getElementById('formHonor');
+    document.getElementById('idHonor').value = data.id;
+    const parts = data.tglKegiatan.split('/'); 
+    if(parts.length === 3) f.tglKegiatan.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+    f.noKuitansi.value = data.noKuitansi;
+    f.sumberDana.value = data.sumberDana;
+    f.judulKegiatan.value = data.judul;
+    f.untukPembayaran.value = data.pembayaran;
+    const container = document.getElementById('container-penerima-honor');
+    container.innerHTML = "";
+    if (data.jsonPenerima) {
+      const list = JSON.parse(data.jsonPenerima);
+      list.forEach(p => addHonorRow(p));
+    }
+    hitungTotalSemua();
+  }
+
+function hapusHonor(id) {
+ Swal.fire({ 
+      title: 'Hapus Data?', 
+      text: "Data akan dihapus permanen dari sistem.",
+      icon: 'warning', 
+      showCancelButton: true, 
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Ya, Hapus!' 
+    }).then((res) => {
+ if (res.isConfirmed) {
+ showLoading("Menghapus...");
+ google.script.run.withSuccessHandler(function(r) {
+closeLoading();
+if(r.success) { 
+             // LOGIKA SILENT REFRESH
+             // 1. Buang data yang dihapus dari memori lokal (Array Filter)
+             CACHE_HONOR = CACHE_HONOR.filter(item => item.id !== id);
+             
+             // 2. Render ulang tabel menggunakan data yang tersisa di memori
+             renderTabelHonor(CACHE_HONOR);
+             
+             showSuccess("Berhasil dihapus secara aman."); 
+           }
+else showError(r.message);
+ }).hapusDataHonor(id, getToken());
+ }
+ });
+ }
+
+  // --- 5. LOGIKA CETAK ---
+  let ID_HONOR_PRINT = null;
+
+  function pilihCetakHonor(id) {
+    ID_HONOR_PRINT = id;
+    const el = document.getElementById('modalCetakHonor');
+    const modal = new bootstrap.Modal(el);
+    modal.show();
+  }
+
+  function prosesCetakHonor(jenis) {
+    if (!ID_HONOR_PRINT) return;
+    const data = CACHE_HONOR.find(x => x.id === ID_HONOR_PRINT);
+    if (!data) return;
+    if (jenis === 'terima') generateDaftarTerima(data);
+    else if (jenis === 'kuitansi') generateKuitansi(data);
+  }
+
+  // SHARED HELPER: Format Tanggal Indonesia
+  function formatTglIndo(tgl) {
+    if (!tgl || !tgl.includes('/')) return tgl;
+    const [d, m, y] = tgl.split('/');
+    const bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    return `${parseInt(d)} ${bulan[parseInt(m) - 1]} ${y}`;
+  }
+
+  function generateDaftarTerima(data) {
+    const mAtas = "20mm", mKanan = "15mm", mBawah = "15mm", mKiri = "15mm";
+    const list = JSON.parse(data.jsonPenerima || "[]");
+    const sekolah = GLOBAL_MASTER.sekolah || {};
+    const rp = (n) => "Rp " + new Intl.NumberFormat('id-ID').format(n);
+    const idLogo = sekolah.idLogo || "";
+    const tglCetak = formatTglIndo(data.tglKegiatan);
+
+    let totalBruto = 0, totalPajak = 0, totalNetto = 0, rows = '';
+    list.forEach((p, i) => {
+       totalBruto += p.bruto; totalPajak += p.nilaiPajak; totalNetto += p.netto;
+       rows += `<tr><td class="text-center">${i + 1}</td><td class="kiri"><b>${p.nama}</b><br>NIP. ${p.nip}</td><td class="text-center">${p.golongan || '-'}</td><td class="text-end">${rp(p.bruto)}</td><td class="text-end text-danger">${rp(p.nilaiPajak)}</td><td class="text-end fw-bold">${rp(p.netto)}</td><td class="text-center">${i + 1}................</td></tr>`;
+    });
+
+    const html = `<div id="terima-wrapper"><style>@page { size: A4 landscape; margin: 0; } body { background: white !important; } .terima-page { padding: ${mAtas} ${mKanan} ${mBawah} ${mKiri}; font-family: 'Times New Roman'; font-size: 10pt; } .tabel-terima { width: 100%; border-collapse: collapse; margin-top: 10px; } .tabel-terima td, .tabel-terima th { border: 1px solid black !important; padding: 5px; } .text-center { text-align: center; } .text-end { text-align: right; } .fw-bold { font-weight: bold; } </style>
+      <div class="terima-page">
+        <div style="border-bottom: 4px double black; display: flex; align-items: center; position: relative; text-align: center; padding-bottom: 5px; margin-bottom: 20px;">
+          ${idLogo ? `<img src="https://drive.google.com/thumbnail?id=${idLogo}&sz=w200" style="width: 55px; position: absolute; left: 0;">` : ''}
+          <div style="width: 100%;"><div style="font-size: 12pt;">${sekolah.kop1}</div><div style="font-size: 12pt;">${sekolah.kop2}</div><div style="font-size: 16pt; font-weight: bold;">${sekolah.kop3}</div><div style="font-size: 10pt; font-style: italic;">${sekolah.kop4}</div><div style="font-size: 10pt; font-style: italic;">${sekolah.kop5}</div></div>
+        </div>
+        <div class="text-center"><b><u>${data.judul.toUpperCase()}</u></b><br>Nomor Bukti: ${data.noKuitansi}</div>
+        <table class="tabel-terima"><thead><tr><th>NO</th><th>NAMA / NIP</th><th>GOL/JAB</th><th>BRUTO</th><th>PAJAK</th><th>NETTO</th><th>TANDA TANGAN</th></tr></thead><tbody>${rows}<tr class="fw-bold"><td colspan="3" class="text-center">TOTAL</td><td class="text-end">${rp(totalBruto)}</td><td class="text-end">${rp(totalPajak)}</td><td class="text-end">${rp(totalNetto)}</td><td></td></tr></tbody></table>
+        <div style="margin-top: 20px; float: right; width: 300px;">${sekolah.tempatSekolah}, ${tglCetak}<br><b>Lunas Dibayar, Bendahara</b><br><br><br><br><u><b>${sekolah.namaBendahara}</b></u><br>NIP. ${sekolah.nipBendahara}</div>
+      </div></div>`;
+    cetakKeLayar(html);
+  }
+
+  function generateKuitansi(data) {
+    const sekolah = GLOBAL_MASTER.sekolah || {};
+    const rp = (n) => "Rp " + new Intl.NumberFormat('id-ID').format(n);
+    const idLogo = sekolah.idLogo || "";
+    const tglCetak = formatTglIndo(data.tglKegiatan);
+    const terbilangStr = helperTerbilang(data.totalBayar) + " Rupiah";
+    const list = JSON.parse(data.jsonPenerima || "[]");
+    
+    const penerima = list.length > 0 ? list[0] : { nama: '.........................', nip: '.........................' };
+
+    let totalBruto = 0, totalPajak = 0;
+    list.forEach(p => { totalBruto += p.bruto; totalPajak += p.nilaiPajak; });
+
+    const rowsRincian = `<tr><td>Honorarium Kegiatan (Bruto)</td><td class="text-end">${rp(totalBruto)}</td><td class="text-center">1 Keg</td><td class="text-end">${rp(totalBruto)}</td></tr>
+      ${totalPajak > 0 ? `<tr><td>Potongan Pajak (PPh)</td><td class="text-end text-danger">(${rp(totalPajak)})</td><td class="text-center">-</td><td class="text-end text-danger">(${rp(totalPajak)})</td></tr>` : ''}
+      <tr class="fw-bold"><td colspan="3" class="text-center">JUMLAH</td><td class="text-end">${rp(data.totalBayar)}</td></tr>`;
+
+    const html = `<div id="kuitansi-wrapper"><style>@page { size: A4; margin: 15mm 10mm 15mm 20mm; } body { background: white !important; } .kuitansi-page { padding: 10px; font-family: 'Times New Roman'; font-size: 11pt; } .tabel-rincian { width: 100%; border-collapse: collapse; border: 1px solid black !important; } .tabel-rincian td, .tabel-rincian th { border: 1px solid black !important; padding: 6px; } .terbilang-box { background: #f0f0f0 !important; border: 2px solid black; padding: 8px; font-weight: bold; font-style: italic; } .text-end { text-align: right; } .text-center { text-align: center; } </style>
+      <div class="kuitansi-page">
+        <div style="border-bottom: 4px double black; display: flex; align-items: center; position: relative; text-align: center; padding-bottom: 5px; margin-bottom: 20px;">
+          ${idLogo ? `<img src="https://drive.google.com/thumbnail?id=${idLogo}&sz=w200" style="width: 55px; position: absolute; left: 0;">` : ''}
+          <div style="width: 100%;"><div style="font-size: 12pt;">${sekolah.kop1}</div><div style="font-size: 12pt;">${sekolah.kop2}</div><div style="font-size: 16pt; font-weight: bold;">${sekolah.kop3}</div><div style="font-size: 10pt; font-style: italic;">${sekolah.kop4}</div><div style="font-size: 10pt; font-style: italic;">${sekolah.kop5}</div></div>
+        </div>
+        <div class="text-center"><b><u>KUITANSI / BUKTI PEMBAYARAN</u></b><br>No. ${data.noKuitansi}</div>
+        <table style="width:100%; margin: 20px 0;">
+          <tr><td width="150">Telah terima dari</td><td width="10">:</td><td><b>Bendahara BOS ${sekolah.namaSekolah}</b></td></tr>
+          <tr><td>Uang Sejumlah</td><td>:</td><td><div class="terbilang-box"># ${terbilangStr} #</div></td></tr>
+          <tr><td>Untuk Pembayaran</td><td>:</td><td>${data.pembayaran}</td></tr>
+          <tr><td>Dibebankan pada</td><td>:</td><td>${data.sumberDana}</td></tr>
+        </table>
+        <b>Rincian :</b>
+<table class="tabel-rincian"><thead><tr><th>Uraian</th><th>Satuan</th><th>Vol</th><th>Jumlah</th></tr></thead><tbody>${rowsRincian}</tbody></table>
+<div style="margin-top: 30px; display: flex; justify-content: flex-end;">
+          <div style="width: 45%; text-align: center;">
+            ${sekolah.tempatSekolah}, ${tglCetak}<br>Yang menerima,<br><br><br><br>
+            <u><b>${penerima.nama}</b></u><br>NIP. ${penerima.nip}
+          </div>
+        </div>
+        <div style="border-top: 1px dashed black; margin-top: 30px; padding-top: 20px; display: flex; justify-content: space-between; text-align: center;">
+          <div style="width: 45%;">Setuju dibayar,<br>Kepala Sekolah<br><br><br><br><u><b>${sekolah.namaKepsek}</b></u><br>NIP. ${sekolah.nipKepsek}</div>
+          <div style="width: 45%;">Lunas dibayar,<br>Bendahara<br><br><br><br><u><b>${sekolah.namaBendahara}</b></u><br>NIP. ${sekolah.nipBendahara}</div>
+        </div>
+      </div></div>`;
+    cetakKeLayar(html);
+  }
+
+  function cetakKeLayar(htmlContent) {
+    const area = document.getElementById('print-area');
+    area.innerHTML = htmlContent;
+    const img = area.querySelector('img');
+    if (img) {
+      if (img.complete) window.print();
+      else img.onload = () => window.print();
+    } else setTimeout(() => window.print(), 200);
+  }
+
+  function helperTerbilang(nilai) {
+    const angka = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
+    let temp = "";
+    if (nilai < 12) temp = " " + angka[nilai];
+    else if (nilai < 20) temp = helperTerbilang(nilai - 10) + " Belas";
+    else if (nilai < 100) temp = helperTerbilang(Math.floor(nilai / 10)) + " Puluh" + helperTerbilang(nilai % 10);
+    else if (nilai < 200) temp = " Seratus" + helperTerbilang(nilai - 100);
+    else if (nilai < 1000) temp = helperTerbilang(Math.floor(nilai / 100)) + " Ratus" + helperTerbilang(nilai % 100);
+    else if (nilai < 1000000) temp = helperTerbilang(Math.floor(nilai / 1000)) + " Ribu" + helperTerbilang(nilai % 1000);
+    else if (nilai < 1000000000) temp = helperTerbilang(Math.floor(nilai / 1000000)) + " Juta" + helperTerbilang(nilai % 1000000);
+    return temp;
+  }
+</script>

@@ -1,0 +1,401 @@
+<!-- =========================================================
+     FILE: css.html
+     FUNGSI: Memuat seluruh library eksternal dan styling UI
+     ========================================================= -->
+
+<!-- 1. Eksternal Libraries (Font, Bootstrap, Icon, SweetAlert) -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+
+<style>
+  /* =========================================
+     1. CSS VARIABLES (DESIGN SYSTEM)
+     ========================================= */
+  :root {
+    --primary-bg: #f8fafc;       
+    --sidebar-bg: #0f172a;       
+    --sidebar-active: #4f46e5;   
+    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --sidebar-width: 270px;
+    --accent-color: #4f46e5;
+  }
+
+  /* =========================================
+     2. BASE TYPOGRAPHY & LAYOUT
+     ========================================= */
+  body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--primary-bg);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    color: #1e293b;
+  }
+
+  /* =========================================
+     3. SIDEBAR CLEAN LAYOUT
+     ========================================= */
+  .sidebar {
+    height: 100vh;
+    width: var(--sidebar-width);
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: var(--sidebar-bg);
+    color: white;
+    z-index: 1050;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1040;
+    display: none;
+  }
+  .sidebar-overlay.show { display: block; }
+
+  .sidebar-header {
+    padding: 20px;
+    background: rgba(0,0,0,0.2);
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .sidebar-menu-container {
+    flex-grow: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+  }
+  
+  .sidebar-menu-container::-webkit-scrollbar { width: 6px; }
+  .sidebar-menu-container::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 3px; }
+
+  .menu-label {
+    padding: 20px 25px 10px 25px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+
+  .sidebar a {
+    padding: 12px 25px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+    cursor: pointer;
+    font-weight: 500;
+    border-left: 4px solid transparent;
+  }
+
+  .sidebar a i { 
+    width: 30px; 
+    font-size: 1.2rem; 
+    transition: transform 0.3s;
+  }
+
+  .sidebar a:hover {
+    color: #fff;
+    background-color: rgba(255,255,255,0.1);
+    transform: translateX(5px);
+  }
+
+  .sidebar a:hover i {
+    transform: scale(1.2);
+  }
+
+  .sidebar a.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-left: 4px solid var(--sidebar-active);
+  }
+
+  .sidebar-footer {
+    flex-shrink: 0;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.25);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: center;
+  }
+
+  .dev-label { display: block; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; margin-bottom: 4px; }
+  .dev-name { font-size: 0.95rem; font-weight: 600; color: #f1f5f9; letter-spacing: 0.5px; }
+  .dev-x { color: #f43f5e; font-weight: bold; font-size: 0.8rem; margin: 0 5px; }
+
+  /* =========================================
+     4. MAIN CONTENT & COMPONENTS
+     ========================================= */
+  .main-content {
+    margin-left: var(--sidebar-width);
+    padding: 20px;
+    min-height: 100vh;
+    transition: all 0.3s ease;
+  }
+
+  .mobile-topbar {
+    display: none;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    padding: 12px 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+    border-radius: 12px;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+  }
+  
+  .btn-toggle-sidebar {
+    background: none; border: none; font-size: 1.5rem; color: #0f172a; cursor: pointer;
+  }
+
+  .card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+
+  .card-header-custom {
+    padding: 16px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    background: #ffffff;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  
+  .card-title { font-weight: 600; color: #0f172a; margin: 0; font-size: 1.1rem; }
+  
+  .card-body { 
+    padding: 24px; 
+    flex-grow: 1;
+  }
+  
+  .card-body::-webkit-scrollbar { width: 6px; }
+  .card-body::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; }
+
+  .form-control, .form-select {
+    border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px 15px; font-size: 0.9rem;
+  }
+  .form-control:focus, .form-select:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); border-color: #3b82f6;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    border: none; 
+    border-radius: 12px; 
+    padding: 12px 24px;
+    font-weight: 600; 
+    box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.39);
+    transition: all 0.3s;
+  }
+  .btn-primary:hover { 
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+    background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  }
+
+  .page-section { animation: fadeIn 0.3s ease-out forwards; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  div:where(.swal2-container) { font-family: 'Poppins', sans-serif !important; }
+
+  /* =========================================
+     5. CUSTOM COLORS (UTILITIES)
+     ========================================= */
+  .bg-indigo  { background-color: #6610f2 !important; color: white; }
+  .bg-purple  { background-color: #6f42c1 !important; color: white; }
+  .bg-pink    { background-color: #d63384 !important; color: white; }
+  .bg-orange  { background-color: #fd7e14 !important; color: white; }
+  .bg-teal    { background-color: #20c997 !important; color: white; }
+  .bg-cyan    { background-color: #0dcaf0 !important; color: #000; } 
+  .bg-lime    { background-color: #84cc16 !important; color: #000; } 
+  .bg-maroon  { background-color: #7f1d1d !important; color: white; }
+  .bg-navy    { background-color: #0f172a !important; color: white; }
+  .bg-gold    { background-color: #ca8a04 !important; color: white; }
+  .bg-grape   { background-color: #9333ea !important; color: white; }
+  .bg-choco   { background-color: #713f12 !important; color: white; }
+
+  /* =========================================
+     6. RESPONSIVE BREAKPOINT (MOBILE)
+     ========================================= */
+  @media (max-width: 768px) {
+    body { padding: 0; overflow-x: hidden; }
+    
+    .sidebar {
+      left: 0; top: 0; height: 100vh; width: 280px; transform: translateX(-100%);
+    }
+    .sidebar.active { transform: translateX(0); }
+
+    .main-content { margin-left: 0; padding: 10px; min-height: 100vh; }
+
+    .mobile-topbar { 
+      display: flex; 
+      margin: -10px -10px 15px -10px;
+      border-radius: 0;
+      z-index: 1030;
+    }
+
+    .modal-dialog { margin: 10px; }
+    
+    .table-responsive { border-radius: 12px; border: 1px solid #eee; }
+    .table { font-size: 0.85rem; }
+    .table th, .table td { padding: 8px 5px; }
+    
+    .btn-group-sm > .btn { padding: 10px 14px; font-size: 1rem; }
+    
+    .sidebar a { padding: 16px 25px; margin: 6px 15px; }
+
+    .card-body { height: auto; }
+    .card-header-custom {
+      padding: 15px; flex-direction: column; align-items: stretch; gap: 10px;
+      top: 56px; border-radius: 0;
+    }
+    .card-title { font-size: 1rem; }
+    .card-header-custom .btn, .card-header-custom .d-flex { width: 100%; }
+    .card-header-custom .d-flex { justify-content: space-between; }
+    
+    #view-surat-form .card-header-custom { padding: 15px; }
+    #view-surat-form .d-flex { flex-direction: column; width: 100%; }
+    
+    #container-personil .row {
+      flex-direction: column; align-items: stretch !important;
+      background: #f8fafc; padding: 15px !important;
+      border-radius: 12px; margin-bottom: 15px !important;
+      border: 1px solid #e2e8f0 !important;
+    }
+    #container-personil .col-md-1, 
+    #container-personil .col-md-4, 
+    #container-personil .col-md-3 {
+      width: 100% !important; text-align: left !important; margin-bottom: 8px;
+    }
+    #container-personil .text-end { text-align: center !important; margin-top: 5px; }
+    #container-personil .btn-outline-danger { width: 100%; }
+
+    .row.g-3 > [class*="col-"] { margin-bottom: 5px; }
+    .pagination { justify-content: center; margin-top: 15px; }
+  }
+
+  /* =========================================
+     7. CSS KHUSUS CETAK (PRINT ENGINE)
+     ========================================= */
+  #print-area { display: none; }
+
+  @media print {
+    body > *:not(#print-area) { display: none !important; }
+
+    html, body {
+      margin: 0 !important; padding: 0 !important; height: auto !important;
+      min-height: 0 !important; width: 100% !important; background: white !important;
+    }
+
+    #print-area, #print-area td, #print-area div, #print-area p {
+      font-family: 'Times New Roman', Times, serif !important;
+      font-size: 12pt;
+      line-height: 1.3 !important;
+      color: #000 !important;
+    }
+
+    #print-area p, #print-area .mb-3, #print-area .row { margin-bottom: 12pt !important; }
+
+    #print-area {
+      display: block !important; position: relative !important;
+      width: 100% !important; margin: 0 !important; padding: 0 !important;
+    }
+
+    @page { 
+      size: A4; 
+      margin: 1.5cm 2cm 1.5cm 2cm; 
+    }
+
+    * { 
+      -webkit-print-color-adjust: exact !important; 
+      print-color-adjust: exact !important;
+      animation: none !important; 
+      transition: none !important; 
+    }
+    
+    table.tabel-garis td, table.tabel-garis th { 
+      border: 1px solid black !important; padding: 6px !important; 
+    }
+  }
+
+  /* KOP SURAT PRINT CLASSES */
+  .kop-surat { 
+    width: 100% !important; text-align: center !important; 
+    border-bottom: 3px double #000 !important; padding-bottom: 5px !important;
+    margin-bottom: 20px !important; position: relative !important;
+  }
+    
+  .kop-surat input[name="kop1"], .kop-surat input[name="kop2"],
+  .kop-surat div:nth-child(1), .kop-surat div:nth-child(2) {
+    font-size: 12pt !important; font-weight: bold !important;
+  }
+
+  .kop-surat input[name="kop3"], .kop-surat .fs-5, .kop-surat h3 {
+    font-size: 16pt !important; font-weight: 900 !important; display: block !important;
+  }
+
+  .kop-surat input[name="kop4"], .kop-surat input[name="kop5"], .kop-surat .small {
+    font-size: 10pt !important; font-style: italic !important;
+  }
+
+  .kop-teks { 
+    display: inline-block !important; width: 100% !important; 
+    font-family: 'Times New Roman', Times, serif !important;
+  }
+
+  .kop-baris-1, .kop-baris-2 {
+    font-size: 12pt !important; font-weight: bold !important; text-transform: uppercase !important; line-height: 1.2 !important;
+  }
+
+  .kop-baris-3 {
+    font-size: 16pt !important; font-weight: 900 !important; text-transform: uppercase !important; margin: 2px 0 !important;
+  }
+
+  .kop-baris-4, .kop-baris-5 {
+    font-size: 10pt !important; font-style: italic !important; line-height: 1.1 !important;
+  }
+
+  .kop-logo { 
+    position: absolute !important; left: 10px !important; top: 10px !important; 
+    width: 55px !important; height: auto !important; 
+  }
+
+  .limit-text { 
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; 
+    overflow: hidden; text-overflow: ellipsis; line-height: 1.4; max-height: 4.2em; 
+  }
+</style>

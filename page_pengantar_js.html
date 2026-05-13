@@ -1,0 +1,144 @@
+<script>
+  /**
+   * [MODE MANUAL]
+   * Tidak ada loading dari database.
+   * Fungsi ini dibiarkan kosong agar tidak error saat dipanggil oleh sistem utama.
+   */
+  function loadPengantarData() {
+    console.log("Mode Pengantar: Manual (Tanpa Load Database)");
+  }
+
+  /**
+   * Fungsi Simpan (Opsional)
+   * Tetap kita biarkan jika Anda ingin menyimpan arsip ke server (One-way).
+   * Jika tidak ingin simpan sama sekali, fungsi ini bisa dikosongkan juga.
+   */
+  function handleSimpanPengantar() {
+    const dataForm = formKeObjek('formPengantar');
+    showLoading("Menyimpan Arsip...");
+    
+    google.script.run
+      .withSuccessHandler(function(res) {
+        closeLoading();
+        if (res.success) showSuccess("Arsip tersimpan (Draft tidak akan dimuat ulang).");
+        else showError(res.message);
+      })
+      .simpanPengantarData(dataForm, getToken());
+  }
+
+  /**
+   * PROSES CETAK PENGANTAR
+   * Mengambil value langsung dari apa yang diketik user di layar.
+   */
+  function prosesCetakPengantar() {
+    const mAtas = "15mm", mKanan = "8mm", mBawah = "10mm", mKiri = "25mm"; 
+
+    // Ambil elemen form langsung
+    const f = document.getElementById('formPengantar');
+    const sekolah = GLOBAL_MASTER.sekolah;
+    
+    if (!f || !sekolah) {
+      showError("Data sekolah belum siap. Silakan refresh.");
+      return;
+    }
+
+    const area = document.getElementById('print-area');
+    const idLogo = sekolah.idLogo || "";
+    
+    // AMBIL VALUE LANGSUNG DARI INPUT (Tanpa menunggu server)
+    const nomorSurat   = f.nomor.value || "400.3.5 / ......... / SDN.....";
+    const tanggalVal   = f.tanggal.value; 
+    const tujuanSurat  = f.tujuan.value || "Kepala Dinas Pendidikan";
+    const isiSurat     = f.isi.value || "";
+    const jmlBerkas    = f.banyaknya.value || "";
+    const ketSurat     = f.keterangan.value || "";
+
+    // Helper Format Tanggal
+    const fmtTgl = (d) => {
+      if (!d || d === "") return "....................";
+      const p = d.split('-');
+      if (p.length < 3) return d; 
+      const bln = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+      return `${parseInt(p[2])} ${bln[parseInt(p[1])-1]} ${p[0]}`;
+    };
+
+    // Render Template Cetak
+    area.innerHTML = `
+      <div id="pengantar-wrapper">
+        <style>
+          @page { size: A4; margin: 0; }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
+          .print-container {
+            width: 210mm; min-height: 297mm; margin: 0 auto;
+            padding: ${mAtas} ${mKanan} ${mBawah} ${mKiri}; 
+            background: white; font-family: 'Times New Roman', Times, serif; color: black; line-height: 1.4;
+          }
+          .tabel-pengantar { width: 100%; border-collapse: collapse; border: 1px solid black !important; }
+          .tabel-pengantar th { border: 1px solid black !important; padding: 10px 5px; background-color: #f2f2f2; font-weight: bold; text-align: center; }
+          .tabel-pengantar td { border: 1px solid black !important; vertical-align: top; }
+        </style>
+
+        <div class="print-container">
+          <div style="width: 100%; border-bottom: 4px double black; padding-bottom: 5px; display: flex; align-items: center; justify-content: center; position: relative; text-align: center; margin-bottom: 50px;">
+            ${idLogo ? `<img src="https://drive.google.com/thumbnail?id=${idLogo}&sz=w200" style="width: 60px; position: absolute; left: 0;" referrerpolicy="no-referrer">` : ''}
+            <div style="width: 100%;">
+              <div style="font-size: 14pt; text-transform: uppercase;">${sekolah.kop1}</div>
+              <div style="font-size: 14pt; text-transform: uppercase;">${sekolah.kop2}</div>
+              <div style="font-size: 22pt; font-weight: bold; text-transform: uppercase;">${sekolah.kop3}</div>
+              <div style="font-size: 10pt; font-style: italic;">${sekolah.kop4}</div>
+              <div style="font-size: 10pt;">${sekolah.kop5}</div>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-bottom: 20px;">
+            <u style="font-weight: bold; font-size: 12pt;">SURAT PENGANTAR</u><br>
+            Nomor : ${nomorSurat}
+          </div>
+
+          <div style="margin-bottom: 30px; margin-left: 0mm; display: flex; align-items: flex-start; font-size: 11pt;">
+            <div style="width: 12mm; flex-shrink: 0; padding-top: 1.4em;">Yth.</div> 
+            <div style="flex-grow: 1;">
+              Kepada :<br>
+              <div style="max-width: 100mm; font-weight: bold; line-height: 1.3; margin-bottom: 5px;">
+                ${tujuanSurat.replace(/\n/g, '<br>')}
+              </div>
+              di -<br>
+              <div style="margin-left: 12mm; margin-top: 0;"> Tempat </div>
+            </div>
+          </div>
+
+          <table class="tabel-pengantar">
+            <thead>
+              <tr>
+                <th style="width: 40px;">NO</th>
+                <th>ISI SURAT</th>
+                <th style="width: 130px;">BANYAKNYA</th>
+                <th style="width: 200px;">KETERANGAN</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align: center; padding: 10px 5px 90px 5px; vertical-align: top;">1.</td>
+                <td style="text-align: justify; padding: 10px 10px 90px 10px; vertical-align: top;">${isiSurat.replace(/\n/g, '<br>')}</td>
+                <td style="text-align: center; padding: 10px 5px 90px 5px; vertical-align: top;">${jmlBerkas}</td>
+                <td style="padding: 10px 10px 90px 10px; vertical-align: top;">${ketSurat.replace(/\n/g, '<br>')}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 60px;">
+              <div style="float: right; width: 300px; text-align: left;">
+                ${sekolah.tempatSekolah}, ${fmtTgl(tanggalVal)}<br>
+                Kepala Sekolah<br><br><br><br><br>
+                <u style="font-weight: bold;">${sekolah.namaKepsek}</u><br>
+                NIP. ${sekolah.nipKepsek}
+              </div>
+            <div style="clear: both;"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    setTimeout(() => { window.print(); }, 1000);
+  }
+</script>

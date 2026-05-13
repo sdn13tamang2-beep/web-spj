@@ -1,0 +1,610 @@
+<div id="page-sptjm" class="page-section" style="display:none;">
+  <!-- Menggunakan versi PDF.js yang sama dengan BKU untuk konsistensi cache browser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-header-custom">
+      <div class="card-title">
+        <i class="fas fa-file-signature me-2"></i> Laporan SPTJM
+      </div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-light btn-sm text-danger border-danger fw-bold shadow-sm" onclick="resetFormSPTJM()">
+          <i class="fas fa-undo me-2"></i> Reset Form
+        </button>
+      </div>
+    </div>
+    
+    <div class="card-body bg-light">
+      
+      <form id="formIdentitasSPTJM" class="mb-4">
+        
+        <!-- Field Identitas & TTD disembunyikan murni untuk menampung hasil ekstrak PDF -->
+        <div style="display: none;">
+          <input type="hidden" id="sptjm_npsn">
+          <input type="hidden" id="sptjm_sekolah">
+          <input type="hidden" id="sptjm_kode">
+          <input type="hidden" id="sptjm_nomor">
+          <input type="hidden" id="sptjm_dpa">
+          <input type="hidden" id="sptjm_periode">
+          <input type="hidden" id="sptjm_tahun">
+          <input type="hidden" id="sptjm_tgl_cetak">
+          <!-- Hidden Input untuk TTD murni dari PDF -->
+          <input type="hidden" id="sptjm_kepsek_nama">
+          <input type="hidden" id="sptjm_kepsek_nip">
+        </div>
+
+        <!-- GROUP 3: INPUT DATA TRANSAKSI (UPLOAD ZONA) -->
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body p-3">
+            <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">
+              <i class="fas fa-database me-2"></i>Input Data Transaksi (Dari PDF SPTJM)
+            </h6>
+            
+            <div class="row g-3 align-items-stretch mb-3">
+              <div class="col-12">
+                <div class="upload-zone py-3 px-4 border border-2 border-dashed rounded bg-white shadow-sm d-flex align-items-center justify-content-center gap-3 h-100" 
+                     onclick="document.getElementById('fileImportSPTJM').click()" style="cursor:pointer; transition: 0.3s; min-height: 80px;">
+                  <i class="fas fa-file-pdf fa-2x text-danger"></i>
+                  <div class="text-start">
+                    <div class="fw-bold small mb-1">Klik atau Tarik File PDF SPTJM ARKAS ke Sini</div>
+                    <p class="text-muted mb-0" style="font-size: 11px;" id="labelFileSPTJM">Identitas sekolah, Tanda Tangan, dan Keuangan akan ditarik murni dari PDF ini.</p>
+                  </div>
+                  <input type="file" id="fileImportSPTJM" accept=".pdf" class="d-none" onchange="handlePDFUploadSPTJM(event)">
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-4">
+              <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <label class="form-label small fw-bold text-primary mb-0 user-select-none" style="cursor: pointer;" onclick="toggleTextareaSPTJM()">
+                    <i class="fas fa-align-left me-1"></i> Data Teks Ekstraksi
+                    <i id="icon-toggle-sptjm" class="fas fa-chevron-right ms-2"></i>
+                  </label>
+                </div>
+                
+                <div id="wrapper-raw-sptjm" style="display: none;">
+                  <textarea id="rawInputSPTJM" class="form-control font-monospace shadow-sm bg-white" rows="6" 
+                            style="font-size: 11px; line-height: 1.6; border-radius: 8px;"
+                            placeholder="Teks mentah dari PDF akan muncul di sini..." readonly></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GROUP 4: RINCIAN KEUANGAN (CALCULATOR) -->
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body p-3">
+            <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-money-bill-wave me-2"></i>Penyesuaian Angka Keuangan</h6>
+            <div class="alert alert-light border small py-2 mb-3">
+              <i class="fas fa-info-circle me-1"></i> Jika angka hasil ekstraksi kurang tepat, Anda dapat menyesuaikannya di sini sebelum dicetak.
+            </div>
+            
+            <div class="row g-4">
+              <!-- Kolom Penerimaan -->
+              <div class="col-md-6 border-end">
+                <h6 class="small fw-bold text-success mb-3">A & B. Saldo Awal & Penerimaan</h6>
+                
+                <div class="mb-2 row">
+                  <label class="col-sm-4 col-form-label small text-muted">Saldo Awal</label>
+                  <div class="col-sm-8">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-light">Rp</span>
+                      <input type="number" id="sptjm_saldo_awal" class="form-control calc-in" value="0" oninput="hitungTotalSPTJM()">
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="mb-2 row">
+                  <label class="col-sm-4 col-form-label small text-muted">Tahap I</label>
+                  <div class="col-sm-8">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-light">Rp</span>
+                      <input type="number" id="sptjm_tahap1" class="form-control calc-in" value="0" oninput="hitungTotalSPTJM()">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mb-3 row">
+                  <label class="col-sm-4 col-form-label small text-muted">Tahap II</label>
+                  <div class="col-sm-8">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-light">Rp</span>
+                      <input type="number" id="sptjm_tahap2" class="form-control calc-in" value="0" oninput="hitungTotalSPTJM()">
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="row border-top pt-2">
+                  <label class="col-sm-4 col-form-label small fw-bold">Jml Penerimaan</label>
+                  <div class="col-sm-8">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-success text-white border-success">Rp</span>
+                      <input type="text" id="sptjm_total_terima" class="form-control fw-bold text-success bg-light" readonly value="0">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Kolom Pengeluaran & Sisa -->
+              <div class="col-md-6">
+                <h6 class="small fw-bold text-danger mb-3">C & D. Pengeluaran & Sisa</h6>
+                
+                <div class="mb-2 row">
+                  <label class="col-sm-4 col-form-label small text-muted">Belanja Operasi</label>
+                  <div class="col-sm-8">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-light">Rp</span>
+                      <input type="number" id="sptjm_belanja_op" class="form-control calc-out" value="0" oninput="hitungTotalSPTJM()">
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="mb-3 row">
+                  <label class="col-sm-4 col-form-label small text-muted">Belanja Modal</label>
+                  <div class="col-sm-8">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-light">Rp</span>
+                      <input type="number" id="sptjm_belanja_mod" class="form-control calc-out" value="0" oninput="hitungTotalSPTJM()">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mb-3 row border-top pt-2">
+                  <label class="col-sm-4 col-form-label small fw-bold">Jml Pengeluaran</label>
+                  <div class="col-sm-8">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text bg-danger text-white border-danger">Rp</span>
+                      <input type="text" id="sptjm_total_keluar" class="form-control fw-bold text-danger bg-light" readonly value="0">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="row bg-light p-2 rounded">
+                  <label class="col-sm-4 col-form-label small fw-bold">SISA DANA</label>
+                  <div class="col-sm-8">
+                    <div class="input-group input-group-sm mb-2">
+                      <span class="input-group-text bg-primary text-white border-primary">Rp</span>
+                      <input type="text" id="sptjm_sisa_dana" class="form-control fw-bold text-primary bg-white" readonly value="0">
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                      <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white" style="font-size: 10px;">Tunai</span>
+                        <!-- Tunai murni kosong/manual -->
+                        <input type="number" id="sptjm_sisa_tunai" class="form-control" step="any" placeholder="0">
+                      </div>
+                      <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white" style="font-size: 10px;">Bank</span>
+                        <!-- [SENIOR FIX] Bank akan diisi default sisa dana, tapi tetap bisa diedit -->
+                        <input type="number" id="sptjm_sisa_bank" class="form-control" step="any" placeholder="0">
+                      </div>
+                    </div>
+                    <small class="text-muted d-block mt-1" style="font-size: 10px;">*Bank mengambil default dari Sisa Dana, namun tetap bisa Anda ubah manual.</small>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </form>
+
+      <!-- TOMBOL PROSES -->
+      <div class="row justify-content-center mb-4">
+        <div class="col-md-6 d-grid">
+          <button class="btn btn-primary btn-lg shadow-sm" onclick="generatePreviewSPTJM()">
+            <i class="fas fa-magic me-2"></i> PROSES DATA & BUAT PREVIEW
+          </button>
+        </div>
+      </div>
+
+      <!-- HASIL PREVIEW -->
+      <div id="sptjm-result-section" style="display:none;">
+        <hr class="my-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="text-primary mb-0"><i class="fas fa-eye me-2"></i> Preview Hasil</h5>
+          <button class="btn btn-success fw-bold px-4" onclick="eksekusiCetakSPTJM()">
+            <i class="fas fa-print me-2"></i> CETAK PDF
+          </button>
+        </div>
+
+        <div class="border rounded p-3 bg-white shadow-sm" style="overflow-x: auto; background-color: #f0f0f0;">
+          <div id="preview-content-sptjm" class="bg-white mx-auto shadow-sm" style="max-width: 800px; padding: 40px; min-height: 1000px;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let HTML_SIAP_CETAK_SPTJM = "";
+
+// --- Murni UI Toggle ---
+function toggleTextareaSPTJM() {
+  const wrapper = document.getElementById('wrapper-raw-sptjm');
+  const icon = document.getElementById('icon-toggle-sptjm');
+  if (wrapper.style.display === 'none') {
+    wrapper.style.display = 'block';
+    icon.classList.replace('fa-chevron-right', 'fa-chevron-down');
+  } else {
+    wrapper.style.display = 'none';
+    icon.classList.replace('fa-chevron-down', 'fa-chevron-right');
+  }
+}
+
+// --- FUNGSI EKSTRAKSI PDF ---
+function handlePDFUploadSPTJM(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const labelFile = document.getElementById('labelFileSPTJM');
+  labelFile.innerHTML = `<i class="fas fa-spinner fa-spin text-danger"></i> Mengekstrak teks, identitas, dan koordinat angka dari PDF...`;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const typedarray = new Uint8Array(e.target.result);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    
+    pdfjsLib.getDocument(typedarray).promise.then(async function(pdf) {
+      let fullText = "";
+      let spatialItems = []; 
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        
+        const pageItems = textContent.items.map(i => ({
+            text: i.str.trim(),
+            x: i.transform[4],
+            y: i.transform[5]
+        })).filter(i => i.text !== '');
+        spatialItems = spatialItems.concat(pageItems);
+
+        const pageText = textContent.items.map(i => i.str).join(" ");
+        fullText += pageText + "\n";
+      }
+
+      document.getElementById('rawInputSPTJM').value = fullText.trim();
+      labelFile.innerHTML = `<i class="fas fa-check text-success"></i> Ekstraksi Berhasil. Silakan cek preview.`;
+      
+      parseRawTextToForm(fullText, spatialItems);
+
+    }).catch(err => {
+       console.error("PDF Parser Error:", err);
+       labelFile.innerHTML = `<span class="text-danger">Gagal membaca PDF.</span>`;
+    });
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// --- PARSER LOGIC: EKSTRAK IDENTITAS DAN ANGKA MURNI DARI PDF ---
+function parseRawTextToForm(text, spatialItems) {
+  const fields = ['sptjm_nomor', 'sptjm_kode', 'sptjm_dpa', 'sptjm_npsn', 'sptjm_sekolah', 'sptjm_periode', 'sptjm_tahun', 'sptjm_kepsek_nama', 'sptjm_kepsek_nip'];
+  fields.forEach(id => document.getElementById(id).value = "");
+  
+  const finFields = ['sptjm_saldo_awal', 'sptjm_tahap1', 'sptjm_tahap2', 'sptjm_belanja_op', 'sptjm_belanja_mod'];
+  finFields.forEach(id => document.getElementById(id).value = "0");
+
+  // Kosongkan Tunai & Bank untuk diset oleh sistem Kalkulasi
+  document.getElementById('sptjm_sisa_tunai').value = "";
+  document.getElementById('sptjm_sisa_bank').value = "";
+
+  const npsnMatches = [...text.matchAll(/\b(\d{8})\b/g)];
+  if (npsnMatches.length > 0) {
+      document.getElementById('sptjm_npsn').value = npsnMatches[0][1];
+  }
+
+  const sekolahMatch = text.match(/disimpan pada Sekolah\s+(.*?)\s+untuk kelengkapan/i);
+  if (sekolahMatch) {
+      document.getElementById('sptjm_sekolah').value = sekolahMatch[1].trim();
+  }
+
+  const nomorMatch = text.match(/Nomor\s*:\s*([A-Za-z0-9\.\/\-]+)/i);
+  if (nomorMatch && !nomorMatch[1].startsWith("1")) {
+      document.getElementById('sptjm_nomor').value = nomorMatch[1].trim();
+  }
+
+  const periodeMatch = text.match(/pada\s+(.*?)\s+tahun\s+anggaran\s+(\d{4})/i);
+  if (periodeMatch) {
+    document.getElementById('sptjm_periode').value = periodeMatch[1].trim();
+    document.getElementById('sptjm_tahun').value = periodeMatch[2].trim();
+  }
+
+  const ttdMatch = text.match(/Kepala\s+Sekolah,?\s+([A-Za-z\.\,\s]+?)\s+NIP[\.\s]*(\d{18})/i);
+  if (ttdMatch) {
+      document.getElementById('sptjm_kepsek_nama').value = ttdMatch[1].trim();
+      document.getElementById('sptjm_kepsek_nip').value = ttdMatch[2].trim();
+  }
+
+  const getValByY = (labelRegex) => {
+      const labelItem = spatialItems.find(i => labelRegex.test(i.text));
+      if (!labelItem) return 0;
+      
+      const valueItems = spatialItems.filter(i => Math.abs(i.y - labelItem.y) < 5 && i.x > labelItem.x + 30);
+      valueItems.sort((a, b) => a.x - b.x); 
+      const combinedText = valueItems.map(i => i.text).join("");
+      const cleanStr = combinedText.replace(/[^\d\.]/g, '');
+      const finalStr = cleanStr.replace(/\.$/, ''); 
+      if (finalStr) return parseInt(finalStr.replace(/\./g, ''), 10) || 0;
+      return 0;
+  };
+
+  document.getElementById('sptjm_saldo_awal').value  = getValByY(/Saldo Awal/i);
+  document.getElementById('sptjm_tahap1').value      = getValByY(/Tahap I\s*$/i);
+  document.getElementById('sptjm_tahap2').value      = getValByY(/Tahap II\s*$/i);
+  document.getElementById('sptjm_belanja_op').value  = getValByY(/Belanja Operasi/i);
+  document.getElementById('sptjm_belanja_mod').value = getValByY(/Belanja Modal/i);
+  
+  // Tunai dan Bank di-skip dari PDF, murni ditentukan oleh hitungan form
+  hitungTotalSPTJM();
+}
+
+function hitungTotalSPTJM() {
+  const getVal = (id) => parseFloat(document.getElementById(id).value) || 0;
+  
+  const totalTerima = getVal('sptjm_saldo_awal') + getVal('sptjm_tahap1') + getVal('sptjm_tahap2');
+  const totalKeluar = getVal('sptjm_belanja_op') + getVal('sptjm_belanja_mod');
+  
+  // Rumus Baku Akuntansi BOSP: Sisa = Penerimaan - Pengeluaran
+  let sisa = totalTerima - totalKeluar;
+
+  // [SENIOR FIX] Atasi Isu Presisi Floating Point (IEEE 754) Bawaan JavaScript
+  // Bulatkan ke maksimal 2 desimal untuk membuang angka sampah.
+  sisa = Math.round(sisa * 100) / 100;
+
+  const fmt = (num) => num.toLocaleString('id-ID');
+
+  document.getElementById('sptjm_total_terima').value = fmt(totalTerima);
+  document.getElementById('sptjm_total_keluar').value = fmt(totalKeluar);
+  document.getElementById('sptjm_sisa_dana').value = fmt(sisa);
+
+  // [SENIOR FIX] Set Bank default ke Sisa Dana. 
+  // Karena tidak ada "oninput" listener pada Bank/Tunai, input ini 100% bebas Anda edit/hapus manual
+  document.getElementById('sptjm_sisa_bank').value = sisa;
+}
+
+function resetFormSPTJM() {
+  document.getElementById('formIdentitasSPTJM').reset();
+  document.getElementById('rawInputSPTJM').value = '';
+  document.getElementById('fileImportSPTJM').value = '';
+  document.getElementById('labelFileSPTJM').innerHTML = 'Identitas sekolah, Tanda Tangan, dan Keuangan akan ditarik murni dari PDF ini.';
+  
+  const fields = ['sptjm_nomor', 'sptjm_kode', 'sptjm_dpa', 'sptjm_npsn', 'sptjm_sekolah', 'sptjm_periode', 'sptjm_tahun', 'sptjm_kepsek_nama', 'sptjm_kepsek_nip'];
+  fields.forEach(id => document.getElementById(id).value = "");
+  
+  document.getElementById('sptjm-result-section').style.display = 'none';
+  HTML_SIAP_CETAK_SPTJM = "";
+  hitungTotalSPTJM(); 
+}
+
+function generatePreviewSPTJM() {
+  const rawText = document.getElementById('rawInputSPTJM').value.trim();
+  if (!rawText) {
+    if (typeof Swal !== 'undefined') {
+      Swal.fire({
+        icon: 'warning', 
+        title: 'Data Kosong', 
+        text: 'Anda belum mengimpor file PDF SPTJM ARKAS. Silakan upload file terlebih dahulu.'
+      });
+    } else {
+      alert('Anda belum mengimpor file PDF SPTJM ARKAS. Silakan upload file terlebih dahulu.');
+    }
+    return;
+  }
+
+  const vNomor = document.getElementById('sptjm_nomor').value || "...................................................";
+  const vNpsn = document.getElementById('sptjm_npsn').value || "";
+  const vSekolah = document.getElementById('sptjm_sekolah').value || "";
+  const vKode = document.getElementById('sptjm_kode').value || "";
+  const vDpa = document.getElementById('sptjm_dpa').value || "";
+  const vPeriode = document.getElementById('sptjm_periode').value || "";
+  const vTahun = document.getElementById('sptjm_tahun').value || "";
+
+  const kepsekNama = document.getElementById('sptjm_kepsek_nama').value || "";
+  const kepsekNip = document.getElementById('sptjm_kepsek_nip').value || "";
+
+  const getVal = (id) => parseFloat(document.getElementById(id).value) || 0;
+  const fmt = (num) => num.toLocaleString('id-ID');
+
+  const cSAwal = getVal('sptjm_saldo_awal');
+  const cTahap1 = getVal('sptjm_tahap1');
+  const cTahap2 = getVal('sptjm_tahap2');
+  const cTerima = cSAwal + cTahap1 + cTahap2;
+
+  const cBOp = getVal('sptjm_belanja_op');
+  const cBMod = getVal('sptjm_belanja_mod');
+  const cKeluar = cBOp + cBMod;
+
+  const cSisa = cTerima - cKeluar;
+  
+  const cTunai = getVal('sptjm_sisa_tunai');
+  const cBank = getVal('sptjm_sisa_bank');
+
+  // Struktur Layout HTML Fix menggunakan Lajur Akuntansi
+  const htmlTpl = `
+    <style>
+      @page { 
+        size: A4 portrait; 
+        margin-top: 15mm; 
+        margin-right: 10mm; 
+        margin-bottom: 5mm; 
+        margin-left: 20mm; 
+      }
+      #print-sptjm-wrapper { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.5; color: #000; padding: 10px 20px; }
+      #print-sptjm-wrapper .title { text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 20px; font-size: 12pt;}
+      #print-sptjm-wrapper p { text-align: justify; margin-bottom: 10px; }
+      
+      #print-sptjm-wrapper table { width: 100%; border-collapse: collapse; margin-bottom: 10px; line-height: 1.15; }
+      #print-sptjm-wrapper td { vertical-align: top; padding: 1px 2px; }
+      
+      #print-sptjm-wrapper .td-label { width: 230px; }
+      #print-sptjm-wrapper .td-colon { width: 15px; text-align: center; }
+      #print-sptjm-wrapper .num-list { width: 25px; }
+      
+      @media print {
+        body > *:not(#print-area) { display: none !important; }
+        #print-area { display: block !important; position: absolute; top: 0; left: 0; width: 100%; }
+      }
+    </style>
+    
+    <div id="print-sptjm-wrapper">
+      <div class="title">SURAT PERNYATAAN TANGGUNG JAWAB MUTLAK</div>
+      
+      <p>Saya yang bertanda tangan dibawah ini menyatakan bahwa bertanggung jawab secara formal dan material atas kebenaran realisasi penerimaan dan pengeluaran Dana BOSP Reguler serta kebenaran perhitungan dan setoran pajak yang telah dipungut atas penggunaan Dana BOSP Reguler pada <strong>${vPeriode}</strong> tahun anggaran <strong>${vTahun}</strong> dengan rincian sebagai berikut:</p>
+      
+      <!-- Nomor Di-Center -->
+      <div style="text-align: center; margin-bottom: 15px; font-size: 11pt;">Nomor : ${vNomor}</div>
+
+      <!-- Tabel 1: Identitas -->
+      <table style="margin-left: 20px; width: calc(100% - 20px);">
+        <tr><td class="num-list">1.</td><td class="td-label">NPSN</td><td class="td-colon">:</td><td>${vNpsn}</td></tr>
+        <tr><td class="num-list">2.</td><td class="td-label">Nama Sekolah</td><td class="td-colon">:</td><td>${vSekolah}</td></tr>
+        <tr><td class="num-list">3.</td><td class="td-label">Kode Sekolah</td><td class="td-colon">:</td><td>${vKode}</td></tr>
+        <tr><td class="num-list">4.</td><td class="td-label">Nomor/Tanggal DPA SKPD</td><td class="td-colon">:</td><td>${vDpa}</td></tr>
+        <tr><td class="num-list">5.</td><td colspan="3">Kegiatan Dana BOSP Reguler</td></tr>
+      </table>
+
+      <!-- Tabel 2: Keuangan (Dua Lajur) diberi margin-left: 45px -->
+      <table style="margin-left: 45px; width: calc(100% - 45px);">
+        <colgroup>
+          <col style="width: 25px;"> <!-- Huruf A,B,C -->
+          <col style="width: 25px;"> <!-- Angka 1,2,3 -->
+          <col style="width: auto;"> <!-- Uraian -->
+          <col style="width: 30px;"> <!-- Rp Dalam -->
+          <col style="width: 90px;"> <!-- Nominal Dalam -->
+          <col style="width: 30px;"> <!-- Rp Luar -->
+          <col style="width: 110px;"> <!-- Nominal Luar -->
+        </colgroup>
+
+        <tr>
+          <td>A.</td>
+          <td colspan="4">Saldo Awal Dana BOSP Reguler</td>
+          <td>Rp.</td>
+          <td align="right">${fmt(cSAwal)}</td>
+        </tr>
+        <tr>
+          <td>B.</td>
+          <td colspan="6">Penerimaan Dana BOSP Reguler</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>1.</td>
+          <td>Tahap I</td>
+          <td>Rp.</td>
+          <td align="right">${fmt(cTahap1)}</td>
+          <td colspan="2"></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>2.</td>
+          <td>Tahap II</td>
+          <td>Rp.</td>
+          <td align="right">${fmt(cTahap2)}</td>
+          <td colspan="2"></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td colspan="4"><strong>Jumlah Penerimaan</strong></td>
+          <td><strong>Rp.</strong></td>
+          <td align="right"><strong>${fmt(cTerima)}</strong></td>
+        </tr>
+
+        <tr><td colspan="7" style="height: 10px;"></td></tr>
+
+        <tr>
+          <td>C.</td>
+          <td colspan="6">Pengeluaran Dana BOSP Reguler</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>1.</td>
+          <td>Jenis Belanja Operasi</td>
+          <td>Rp.</td>
+          <td align="right">${fmt(cBOp)}</td>
+          <td colspan="2"></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>2.</td>
+          <td>Jenis Belanja Modal</td>
+          <td>Rp.</td>
+          <td align="right">${fmt(cBMod)}</td>
+          <td colspan="2"></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td colspan="4"><strong>Jumlah Pengeluaran</strong></td>
+          <td><strong>Rp.</strong></td>
+          <td align="right"><strong>${fmt(cKeluar)}</strong></td>
+        </tr>
+
+        <tr><td colspan="7" style="height: 10px;"></td></tr>
+
+        <tr>
+          <td>D.</td>
+          <td colspan="4">Sisa Dana BOSP Reguler</td>
+          <td>Rp.</td>
+          <td align="right">${fmt(cSisa)}</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td colspan="6">Terdiri atas :</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>1.</td>
+          <td>Sisa Kas Tunai</td>
+          <td>Rp.</td>
+          <td align="right">${fmt(cTunai)}</td>
+          <td colspan="2"></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>2.</td>
+          <td>Sisa di Bank</td>
+          <td>Rp.</td>
+          <td align="right">${fmt(cBank)}</td>
+          <td colspan="2"></td>
+        </tr>
+      </table>
+
+      <p style="margin-top:20px;">Bukti-bukti atas belanja tersebut pada huruf B disimpan pada Sekolah <strong>${vSekolah}</strong> untuk kelengkapan Administrasi dan keperluan pemeriksaan sesuai peraturan perundang-undangan. Apabila bukti-bukti tersebut tidak benar yang mengakibatkan kerugian daerah, saya bertanggungjawab sepenuhnya atas kerugian daerah dimaksud sesuai kewenangan saya berdasarkan ketentuan peraturan perundang-undangan.</p>
+      
+      <p>Demikian surat pernyataan ini dibuat dengan sebenarnya.</p>
+
+      <table style="margin-top: 30px; text-align: center;">
+        <tr>
+          <td width="50%"></td>
+          <td width="50%">
+            <br>
+            Kepala Sekolah,<br><br><br><br><br>
+            <strong>${kepsekNama}</strong><br>
+            NIP ${kepsekNip}
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+
+  HTML_SIAP_CETAK_SPTJM = htmlTpl;
+  document.getElementById('preview-content-sptjm').innerHTML = htmlTpl;
+  document.getElementById('sptjm-result-section').style.display = 'block';
+  
+  document.getElementById('sptjm-result-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+function eksekusiCetakSPTJM() {
+  if (!HTML_SIAP_CETAK_SPTJM) return;
+  const area = document.getElementById('print-area');
+  area.innerHTML = HTML_SIAP_CETAK_SPTJM;
+  
+  setTimeout(() => {
+    window.print();
+  }, 100);
+}
+</script>
+</div>

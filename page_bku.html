@@ -1,0 +1,895 @@
+<div id="page-bku" class="page-section" style="display:none;">
+  <!-- [SENIOR ADDITION] PDF.js untuk ekstraksi Visual Line-by-Line di Frontend -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-header-custom">
+      <div class="card-title">
+        <i class="fas fa-book-open me-2"></i> Laporan BKU
+      </div>
+      <div class="d-flex gap-2">
+        <!-- [SENIOR FIX] Racikan utilitas murni agar teks/border merah dan hover tidak meng-invert teks jadi putih -->
+        <button type="button" class="btn btn-light btn-sm text-danger border-danger fw-bold shadow-sm" onclick="resetSeluruhFormBKU()">
+          <i class="fas fa-undo me-2"></i> Reset Form
+        </button>
+        <!-- [SENIOR FIX] Tambahkan ID Eksplisit -->
+        <button type="button" id="btn-tarik-data" class="btn btn-primary btn-sm" onclick="loadDataAwalBKU()">
+          <i class="fas fa-sync-alt me-2"></i> Tarik Data Sekolah
+        </button>
+      </div>
+    </div>
+    
+    <div class="card-body bg-light">
+      
+      <form id="formIdentitasBKU" class="mb-4">
+        <!-- GROUP 1: IDENTITAS SEKOLAH (RESTORED) -->
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body p-3">
+            <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-school me-2"></i>Identitas Sekolah</h6>
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted">NPSN</label>
+                <input type="text" name="npsn" class="form-control bg-light fw-bold" required readonly>
+              </div>
+              <div class="col-md-5">
+                <label class="form-label small fw-bold text-muted">Nama Satuan Pendidikan</label>
+                <input type="text" name="namaSekolah" class="form-control bg-light fw-bold" readonly>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-muted">Desa & Kecamatan</label>
+                <input type="text" name="lokasi" class="form-control bg-light fw-bold" readonly>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-muted">Kabupaten / Kota</label>
+                <input type="text" name="kabupaten" class="form-control">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-muted">Provinsi</label>
+                <input type="text" name="provinsi" class="form-control">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold text-muted">Sumber Dana BOSP</label>
+                <input type="text" name="sumberDana" class="form-control" value="BOSP Reguler Tahap .. Tahun 20..">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GROUP 2: PERIODE & SALDO -->
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body p-3">
+            <h6 class="text-primary fw-bold mb-3 border-bottom pb-2"><i class="fas fa-calendar-check me-2"></i>Periode & Saldo Awal</h6>
+            <div class="row g-3">
+
+              <div class="col-md-3">
+                <label id="label-saldo-bank" class="form-label small fw-bold text-muted">Saldo Bank</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-primary-subtle">Rp</span>
+                  <input type="number" id="input-saldo-bank" class="form-control fw-bold text-primary" placeholder="0">
+                </div>
+              </div>
+
+              <div class="col-md-3">
+                <label id="label-saldo-tunai" class="form-label small fw-bold text-muted">Saldo Tunai</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-danger-subtle">Rp</span>
+                  <input type="number" id="input-saldo-tunai" class="form-control fw-bold text-danger" placeholder="0">
+                </div>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted">Bulan Laporan</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white"><i class="fas fa-calendar-alt text-primary"></i></span>
+                  <input type="text" name="periode" id="input-periode" class="form-control fw-bold text-uppercase" placeholder="Pilih / Ketik" required autocomplete="off">
+                  <select id="dropdown-periode" class="form-select bg-light border-start-0" style="flex: 0 0 45px; cursor: pointer; padding: 0 0 0 10px;" title="Pilih Bulan" onchange="if(this.value) { document.getElementById('input-periode').value = this.value; this.selectedIndex = 0; }">
+                    <option value="" hidden></option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted">Tanggal Cetak</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-success-subtle"><i class="fas fa-calendar-day text-success"></i></span>
+                  <input type="date" id="input-tgl-cetak" class="form-control fw-bold text-success" title="Tanggal Penandatanganan">
+                </div>
+              </div>
+
+              <div class="col-md-8">
+                <div class="alert alert-info border-0 small mb-0 py-2">
+                  <i class="fas fa-lightbulb me-2"></i>
+                  <strong>Tips:</strong> Gunakan tombol <b>"Ambil Saldo"</b> setelah memproses data bulan sebelumnya untuk otomatisasi saldo awal.
+                </div>
+              </div>
+              <div class="col-md-4 d-grid">
+                <!-- [SENIOR FIX] Default disabled -->
+                <button type="button" id="btn-ambil-saldo" class="btn btn-dark fw-bold" onclick="salinSaldoDariPreview()" disabled>
+                  <i class="fas fa-copy me-2"></i> Ambil Saldo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GROUP 3: SUMBER DATA -->
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body p-3">
+            <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">
+              <i class="fas fa-database me-2"></i>Input Data Transaksi
+            </h6>
+
+            <div class="row g-3 align-items-stretch mb-3">
+              <div class="col-12">
+                <div class="upload-zone py-3 px-4 border border-2 border-dashed rounded bg-white shadow-sm d-flex align-items-center justify-content-center gap-3 h-100" 
+                     onclick="document.getElementById('fileImportPDF').click()" style="cursor:pointer; transition: 0.3s; min-height: 80px;">
+                  <i class="fas fa-file-pdf fa-2x text-danger"></i>
+                  <div class="text-start">
+                    <div class="fw-bold small mb-1">Klik atau Tarik File PDF BKU ARKAS ke Sini</div>
+                    <p class="text-muted mb-0" style="font-size: 11px;" id="labelNamaFile">Otomatis mengekstrak tabel transaksi dari file PDF Anda</p>
+                  </div>
+                  <input type="file" id="fileImportPDF" accept=".pdf" class="d-none" onchange="handlePDFUpload(event)">
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-4">
+              <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <label class="form-label small fw-bold text-primary mb-0 user-select-none" style="cursor: pointer;" onclick="toggleTextareaBKU()">
+                    <i class="fas fa-table me-1"></i> Data Transaksi (TSV / Excel Paste Area)
+                    <i id="icon-toggle-bku" class="fas fa-chevron-right ms-2"></i>
+                  </label>
+                  <span class="badge bg-light text-dark border">Gunakan Ctrl+V untuk menempel data dari Excel</span>
+                </div>
+                
+                <div id="wrapper-raw-input" style="display: none;">
+                  <textarea id="rawInputBKU" class="form-control font-monospace shadow-sm bg-white" rows="12" 
+                            style="font-size: 11px; line-height: 1.6; border-radius: 12px;"
+                            placeholder="Data hasil ekstraksi PDF akan muncul di sini secara otomatis, atau Anda bisa menempelkan (paste) data langsung dari Microsoft Excel..."></textarea>
+                  <div class="form-text mt-2 small text-muted">
+                    <i class="fas fa-info-circle me-1"></i> Pastikan urutan kolom: Tanggal | Kd Kegiatan | Kd Rekening | No Bukti | Uraian | Penerimaan | Pengeluaran
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div class="row justify-content-center mb-4">
+        <div class="col-md-6 d-grid">
+          <button class="btn btn-primary btn-lg shadow-sm" onclick="generatePreviewBKU()">
+            <i class="fas fa-magic me-2"></i> PROSES DATA & HITUNG SALDO
+          </button>
+        </div>
+      </div>
+
+      <div id="bku-result-section" style="display:none;">
+        <hr class="my-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="text-primary mb-0"><i class="fas fa-eye me-2"></i> Preview Hasil</h5>
+          <button class="btn btn-success fw-bold px-4" onclick="eksekusiCetakBKU()">
+            <i class="fas fa-print me-2"></i> CETAK PDF
+          </button>
+        </div>
+
+        <div class="border rounded p-3 bg-white shadow-sm" style="overflow-x: auto;">
+          <div id="preview-content-bku"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let HTML_SIAP_CETAK = "";
+let CACHE_SALDO_BANK = 0;
+let CACHE_SALDO_TUNAI = 0;
+
+/* [SENIOR FIX] Fungsi Global Reset Form dengan Konfirmasi Keamanan */
+function resetSeluruhFormBKU() {
+  const confirmMsg = "Anda yakin ingin mereset seluruh form? Semua data sekolah, transaksi, dan preview akan dihapus.";
+  
+  if(typeof Swal !== 'undefined') {
+    Swal.fire({
+      title: 'Reset Seluruh Form?',
+      text: confirmMsg,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Ya, Reset!',
+      cancelButtonText: 'Batal'
+    }).then((result) => {
+      if (result.isConfirmed) executeResetGlobal();
+    });
+  } else {
+    if(confirm(confirmMsg)) executeResetGlobal();
+  }
+
+  function executeResetGlobal() {
+    // 1. Reset seluruh input di dalam form (termasuk Identitas, Periode, Saldo)
+    document.getElementById('formIdentitasBKU').reset();
+    
+    // 2. Kembalikan label saldo yang mungkin sudah di-overwrite oleh fungsi salinSaldoDariPreview
+    document.getElementById('label-saldo-bank').innerHTML = 'Saldo Bank';
+    document.getElementById('label-saldo-tunai').innerHTML = 'Saldo Tunai';
+    
+    // 3. Kosongkan Raw Data Transaksi
+    document.getElementById('rawInputBKU').value = '';
+    
+    // 4. Kembalikan UI Upload PDF ke default
+    const lbl = document.getElementById('labelNamaFile');
+    if (lbl) {
+        lbl.innerHTML = 'Otomatis mengekstrak tabel transaksi dari file PDF Anda';
+        lbl.classList.remove('text-dark', 'fw-bold');
+        lbl.classList.add('text-muted');
+    }
+    const fInput = document.getElementById('fileImportPDF');
+    if(fInput) fInput.value = '';
+
+    // 5. Sembunyikan dan kosongkan area preview cetak
+    document.getElementById('bku-result-section').style.display = 'none';
+    document.getElementById('preview-content-bku').innerHTML = '';
+    HTML_SIAP_CETAK = ""; 
+    CACHE_SALDO_BANK = 0;
+    CACHE_SALDO_TUNAI = 0;
+    
+    // 6. Kunci kembali tombol Ambil Saldo
+    document.getElementById('btn-ambil-saldo').disabled = true;
+
+    if(typeof Swal !== 'undefined') {
+      Swal.fire({ icon: 'success', title: 'Form Direset', showConfirmButton: false, timer: 1500 });
+    }
+  }
+}
+
+/* [SENIOR FIX] Generator Combo-Box Dropdown Bulan & Tahun Berjalan */
+(function buildPeriodeDropdown() {
+  const select = document.getElementById('dropdown-periode');
+  if (!select) return;
+  
+  const currentYear = new Date().getFullYear();
+  const months = ["JANUARI", "FEBRUARI", "MARET", "APRIL", "MEI", "JUNI", "JULI", "AGUSTUS", "SEPTEMBER", "OKTOBER", "NOVEMBER", "DESEMBER"];
+  
+  months.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = `${m} TAHUN : ${currentYear}`;
+    opt.textContent = `${m} TAHUN : ${currentYear}`; // Disamakan agar tidak membingungkan
+    select.appendChild(opt);
+  });
+})();
+
+/* --- FUNGSI TOGGLE UI --- */
+function toggleTextareaBKU() {
+  const wrapper = document.getElementById('wrapper-raw-input');
+  const icon = document.getElementById('icon-toggle-bku');
+  
+  if (wrapper.style.display === 'none') {
+    wrapper.style.display = 'block';
+    icon.classList.replace('fa-chevron-right', 'fa-chevron-down');
+  } else {
+    wrapper.style.display = 'none';
+    icon.classList.replace('fa-chevron-down', 'fa-chevron-right');
+  }
+}
+
+/* --- [SENIOR FIX] FUNGSI TARIK DATA (ZERO LATENCY CACHE) --- */
+function loadDataAwalBKU() {
+  const f = document.getElementById('formIdentitasBKU');
+  const s = GLOBAL_MASTER.sekolah; // Ambil dari cache lokal, bukan dari server!
+  
+  if (s) {
+     // Isi field BKU
+     f.npsn.value = s.npsn || "";
+     f.namaSekolah.value = s.namaSekolah || "";
+     
+     const lokasiLengkap = (s.desa_pusat && s.kec_pusat) ? `${s.desa_pusat}, ${s.kec_pusat}` : s.tempatSekolah;
+     f.lokasi.value = lokasiLengkap || "";
+     f.kabupaten.value = s.kabupaten || "Kab. Sekadau";
+     f.provinsi.value = s.provinsi || "Prov. Kalimantan Barat";
+     
+     // Setup Variabel Global TTD BKU agar terhubung ke fungsi cetak
+     window.TTD_BKU = {
+        kepsek: s.namaKepsek,
+        nipKepsek: s.nipKepsek,
+        bendahara: s.namaBendahara,
+        nipBendahara: s.nipBendahara
+     };
+     
+     if(typeof showSuccess === 'function') showSuccess("Data Ditarik (Instan)");
+  } else {
+     if(typeof showError === 'function') showError("Data Sekolah belum tersedia. Silahkan muat ulang aplikasi.");
+  }
+}
+
+/* ==========================================
+ * VISUAL LINE-BY-LINE PARSER (REFACTORED BY SENIOR)
+ * ========================================== */
+function handlePDFUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const labelFile = document.getElementById('labelNamaFile');
+  labelFile.innerHTML = `<i class="fas fa-spinner fa-spin text-danger"></i> Membedah Struktur Tabel PDF...`;
+  labelFile.classList.replace('text-muted', 'text-dark');
+  labelFile.classList.add('fw-bold');
+
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    const typedarray = new Uint8Array(e.target.result);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    
+    const loadingTask = pdfjsLib.getDocument(typedarray);
+    loadingTask.promise.then(async function(pdf) {
+      let transactions = [];
+
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        labelFile.innerHTML = `<i class="fas fa-spinner fa-spin text-danger"></i> Ekstraksi Halaman ${pageNum}/${pdf.numPages}...`;
+        await new Promise(r => setTimeout(r, 10)); 
+        
+        try {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            
+            let rawItems = textContent.items.map(i => ({
+                text: i.str.trim(),
+                x: i.transform[4],
+                y: i.transform[5]
+            })).filter(i => i.text !== '');
+
+            let cutoffIndex = rawItems.findIndex(i => {
+                let l = i.text.toLowerCase();
+                return l.match(/^jumlah\s*[\d\.,\s]*$/) || l.includes("pada hari ini") || l.includes("buku kas umum ditutup");
+            });
+            if (cutoffIndex !== -1) {
+                rawItems = rawItems.slice(0, cutoffIndex);
+            }
+
+            const noisePatterns = [
+                /npsn\s*:/i, /nama sekolah\s*:/i, /desa\/kecamatan/i, /kabupaten \/ kota/i,
+                /provinsi\s*:/i, /sumber dana/i, /buku kas umum\s*$/i, /bulan\s*:.*tahun\s*:/i,
+                /^bku\s*$/i, /^tanggal\s*$/i, /^kode\s*kegiatan\s*$/i, /^kode\s*rekening\s*$/i,
+                /^no\.?\s*bukti\s*$/i, /^uraian\s*$/i, /^penerimaan\s*$/i, /^pengeluaran\s*$/i, /^saldo\s*$/i,
+                /^1\s+2\s+3\s+4\s+5\s+6\s+7\s+8\s*$/, /^halaman\s+\d+/i, /bku.*npsn/i
+            ];
+
+            let cleanItems = rawItems.filter(i => {
+                let l = i.text.toLowerCase();
+                return !noisePatterns.some(p => p.test(l));
+            });
+
+            let dateItems = cleanItems.filter(i => i.text.match(/^\d{2}[-/]\d{2}[-/]\d{4}$/) && i.x < 100);
+            dateItems.sort((a, b) => b.y - a.y); 
+
+            if (dateItems.length === 0) continue;
+
+            for (let i = 0; i < dateItems.length; i++) {
+                let topBoundary = dateItems[i].y + 12; 
+                let bottomBoundary = (i + 1 < dateItems.length) ? (dateItems[i+1].y + 12) : -1;
+
+                let rowBucket = cleanItems.filter(item => item.y <= topBoundary && item.y > bottomBoundary);
+                rowBucket = rowBucket.filter(item => item !== dateItems[i]);
+
+                rowBucket.sort((a, b) => {
+                    if (Math.abs(a.x - b.x) < 5) return b.y - a.y; 
+                    return a.x - b.x;
+                });
+
+                let rest = rowBucket.map(item => item.text).join(" ").replace(/\s+/g, " ").trim();
+                
+                let tokens = rest.split(" ");
+                let numbers = [];
+                
+                while(tokens.length > 0) {
+                    let last = tokens[tokens.length - 1];
+                    if(last.match(/^[\d\.,]+$/) && !last.match(/^\d{2}\.\d{2}\.\d{2}\.$/)) {
+                        if (numbers.length >= 3) break; 
+                        if (last.match(/^\d{4}$/) && numbers.length >= 1) break;
+
+                        numbers.unshift(last);
+                        tokens.pop();
+                    } else {
+                        break; 
+                    }
+                }
+
+                let middle = tokens.join(" ").trim();
+                let masuk = "0", keluar = "0";
+
+                if (numbers.length >= 3) {
+                    masuk = numbers[numbers.length - 3];
+                    keluar = numbers[numbers.length - 2];
+                } else if (numbers.length === 2) {
+                    masuk = numbers[0];
+                    keluar = numbers[1];
+                } else if (numbers.length === 1) {
+                    masuk = numbers[0];
+                }
+
+                let keg = "", rek = "", bukti = "", uraian = middle;
+
+                let mKeg = uraian.match(/\b(\d{2}\.\d{2}\.\d{2}\.)(?=\s|$)/);
+                if (mKeg) { keg = mKeg[1]; uraian = uraian.replace(mKeg[0], " ").trim(); }
+
+                let mBukti = uraian.match(/\b((?:BPU|BBU|BJU|BP|BK|TBP|STS|BPN|SSP)[\-\.]?\d+[A-Z0-9]*)\b/i);
+                if (mBukti) { bukti = mBukti[1]; uraian = uraian.replace(mBukti[0], " ").trim(); }
+
+                let mRek = uraian.match(/\b([1-9]\.\d\.\d{2}\.\d{2}\.\d{2}\.\d{2}(?:\s+\d{2})?)\b/);
+                if (mRek) {
+                    rek = mRek[1];
+                    uraian = uraian.replace(mRek[0], " ").trim();
+                    
+                    let mDanglingStart = uraian.match(/^(\d{2})\b/);
+                    if (mDanglingStart) {
+                        rek += " " + mDanglingStart[1];
+                        uraian = uraian.replace(mDanglingStart[0], " ").trim();
+                    } else {
+                        let mDanglingEnd = uraian.match(/\b(\d{2})$/);
+                        if (mDanglingEnd) {
+                            rek += " " + mDanglingEnd[1];
+                            uraian = uraian.substring(0, uraian.length - mDanglingEnd[0].length).trim();
+                        }
+                    }
+                }
+
+                if (uraian.match(/^(\d{2})\s+/) && keg === "" && rek === "") {
+                    uraian = uraian.replace(/^(\d{2})\s+/, "").trim();
+                }
+
+                uraian = uraian.replace(/\s+/g, ' ').trim();
+                masuk = masuk.replace(/[^\d.,]/g, "").replace(/^0,0+$/, "0") || "0";
+                keluar = keluar.replace(/[^\d.,]/g, "").replace(/^0,0+$/, "0") || "0";
+
+                transactions.push({tgl: dateItems[i].text, keg, rek, bukti, uraian, masuk, keluar});
+            }
+
+        } catch (pageErr) {
+            console.warn(`Gagal membaca halaman ${pageNum}`, pageErr);
+        }
+      }
+
+      let tsvOutput = "";
+      transactions.forEach(tx => {
+          tsvOutput += `${tx.tgl}\t${tx.keg}\t${tx.rek}\t${tx.bukti}\t${tx.uraian}\t${tx.masuk}\t${tx.keluar}\n`;
+      });
+
+      document.getElementById('rawInputBKU').value = tsvOutput.trim();
+      labelFile.innerHTML = `<i class="fas fa-check text-success"></i> Ekstrak Selesai: ${file.name}`;
+      
+      if(typeof Swal !== 'undefined') {
+        Swal.fire('Ekstraksi Selesai', 'Data berhasil ditambahkan.', 'success');
+      } else {
+        alert("Ekstraksi Selesai!");
+      }
+      document.getElementById('fileImportPDF').value = ""; 
+
+    }).catch(err => {
+       console.error("Visual Parser Fatal Error:", err);
+       if(typeof Swal !== 'undefined') Swal.fire('Error PDF', 'Gagal membedah struktur file.', 'error');
+       labelFile.innerHTML = 'Otomatis mengekstrak tabel transaksi dari file PDF Anda';
+       labelFile.classList.remove('text-dark', 'fw-bold');
+       labelFile.classList.add('text-muted');
+    });
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+function salinSaldoDariPreview() {
+  if (CACHE_SALDO_BANK === 0 && CACHE_SALDO_TUNAI === 0) {
+    const previewArea = document.getElementById('preview-content-bku').innerHTML;
+    if (!previewArea) {
+       return typeof Swal !== 'undefined' ? Swal.fire("Data Kosong", "Silakan 'Proses Data' terlebih dahulu.", "info") : alert("Data Kosong");
+    } else {
+       return typeof Swal !== 'undefined' ? Swal.fire("Info", "Saldo Akhir bernilai 0.", "info") : alert("Saldo 0");
+    }
+  }
+
+  // Tangkap periode SEBELUM form dikosongkan
+  const periodeBulan = document.getElementById('input-periode').value.trim();
+
+  const sBankFixed = parseFloat(CACHE_SALDO_BANK.toFixed(2));
+  const sTunaiFixed = parseFloat(CACHE_SALDO_TUNAI.toFixed(2));
+
+  document.getElementById('input-saldo-bank').value = sBankFixed;
+  document.getElementById('input-saldo-tunai').value = sTunaiFixed;
+
+  // Modifikasi label agar mencatat riwayat bulan saldo
+  if (periodeBulan) {
+    document.getElementById('label-saldo-bank').innerHTML = `Saldo Bank : <span class="text-primary">${periodeBulan}</span>`;
+    document.getElementById('label-saldo-tunai').innerHTML = `Saldo Tunai : <span class="text-danger">${periodeBulan}</span>`;
+  }
+
+  const inputRaw = document.getElementById('rawInputBKU');
+  inputRaw.value = '';
+  
+  document.getElementById('input-periode').value = '';
+  document.getElementById('input-tgl-cetak').value = '';
+
+  document.getElementById('bku-result-section').style.display = 'none';
+  HTML_SIAP_CETAK = ""; 
+  
+  const lbl = document.getElementById('labelNamaFile');
+  if (lbl) {
+      lbl.innerHTML = 'Otomatis mengekstrak tabel transaksi dari file PDF Anda';
+      lbl.classList.remove('text-dark', 'fw-bold');
+      lbl.classList.add('text-muted');
+  }
+  const fInput = document.getElementById('fileImportPDF');
+  if(fInput) fInput.value = '';
+
+  document.getElementById('btn-ambil-saldo').disabled = true;
+
+  if(typeof Swal !== 'undefined') {
+      Swal.fire({
+        icon: 'success',
+        title: 'Saldo Disalin & Data Direset!',
+        html: `Data siap untuk bulan berikutnya.<br><br>
+               <b>Bank:</b> ${sBankFixed.toLocaleString('id-ID', { minimumFractionDigits: 2 })}<br>
+               <b>Tunai:</b> ${sTunaiFixed.toLocaleString('id-ID', { minimumFractionDigits: 2 })}`,
+        timer: 2500,
+        showConfirmButton: false
+      });
+  }
+}
+
+function getFormData(formId) {
+    const form = document.getElementById(formId);
+    const formData = new FormData(form);
+    const obj = {};
+    formData.forEach((value, key) => obj[key] = value);
+    return obj;
+}
+
+function generatePreviewBKU() {
+  try {
+    const f = getFormData('formIdentitasBKU');
+
+    if (!f.npsn || f.npsn.trim() === "") {
+      if(typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'NPSN Kosong!' });
+      document.querySelector('input[name="npsn"]').focus();
+      return; 
+    }
+    
+    if (!f.periode || f.periode.trim() === "") {
+      if(typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Periode Kosong!' });
+      document.querySelector('input[name="periode"]').focus();
+      return; 
+    }
+
+    const raw = document.getElementById('rawInputBKU').value.trim();
+    const sBankInput = document.getElementById('input-saldo-bank').value;
+    const sTunaiInput = document.getElementById('input-saldo-tunai').value;
+    
+    if(!raw && !sBankInput && !sTunaiInput) {
+       return typeof showError === 'function' ? showError("Data kosong!") : alert("Data kosong!");
+    }
+
+    const tglPicker = document.getElementById('input-tgl-cetak').value;
+    
+    if (!tglPicker) {
+      if(typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Tanggal Cetak Kosong!' });
+      document.getElementById('input-tgl-cetak').focus();
+      return;
+    }
+
+    const dateObj = new Date(tglPicker);
+    const namaHari = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    
+    const stringHari = namaHari[dateObj.getDay()];
+    const stringTanggal = `${dateObj.getDate()} ${namaBulan[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+    
+    const tglCetakParagraf = `${stringHari} ${stringTanggal}`;
+    const tglCetakTTD = stringTanggal;
+
+    const rows = parseExcelTSV(raw); 
+    let saldo = 0, totalMasuk = 0, totalKeluar = 0, saldoBank = 0, saldoTunai = 0, trRows = "";
+
+    const clean = (val) => {
+      if (!val || val === "0" || val === "") return 0;
+      let s = String(val).trim().replace(/\./g, "").replace(/,/g, ".");
+      return parseFloat(s) || 0;
+    };
+    
+    const fmt = (num) => num.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const fmtStrict = (num) => num.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    rows.forEach(cols => {
+      if(cols.length < 5 || !cols[4]) return;
+
+      const tgl = cols[0] || "";
+      const kdKeg = cols[1] || "";
+      const rawKdRek = cols[2] || "";
+      const kdRekHTML = rawKdRek.replace(/\n/g, "<br>"); 
+      const bukti = (cols[3] || "").replace(/\n/g, " ");
+      const uraianOriginal = (cols[4] || "").replace(/\n/g, " ");
+      
+      const uraianClean = uraianOriginal.replace(/\s+/g, ' ').trim(); 
+      const uraian = uraianClean.toLowerCase();
+      
+      if (uraian.startsWith("jumlah") || uraian.startsWith("total")) return;
+      
+      let masuk = clean(cols[5]);
+      let keluar = clean(cols[6]);
+
+      if (!bukti && uraian.includes("saldo")) {
+          if (uraian.includes("bank") && sBankInput !== "") masuk = parseFloat(sBankInput) || 0;
+          else if ((uraian.includes("tunai") || uraian.includes("kas")) && sTunaiInput !== "") masuk = parseFloat(sTunaiInput) || 0;
+      }
+      
+      saldo = saldo + masuk - keluar;
+      totalMasuk += masuk;
+      totalKeluar += keluar;
+
+      const isTransaksiBank = (rawKdRek.replace(/[\n\r\t ]/g, "").trim() === "");
+
+      if (isTransaksiBank) {
+        if (masuk > 0) {
+          if (uraian.includes("saldo") && (uraian.includes("tunai") || uraian.includes("kas")) || uraian.includes("pergeseran")) {
+            saldoTunai += masuk;
+          } else {
+            saldoBank += masuk;
+          }
+        }
+        if (keluar > 0) saldoBank -= keluar;
+      } else {
+        if (masuk > 0) saldoTunai += masuk;
+        if (keluar > 0) saldoTunai -= keluar;
+      }
+
+      trRows += `
+        <tr>
+          <td class="text-center">${tgl}</td>
+          <td class="text-center">${kdKeg}</td>
+          <td class="text-center">${kdRekHTML}</td>
+          <td class="text-center">${bukti}</td>
+          <td style="text-align:justify;">${uraianOriginal}</td>
+          <td class="text-end">${masuk !== 0 ? fmt(masuk) : '0'}</td>
+          <td class="text-end">${keluar !== 0 ? fmt(keluar) : '0'}</td>
+          <td class="text-end fw-bold">${fmt(saldo)}</td>
+        </tr>`;
+    });
+
+    CACHE_SALDO_BANK = saldoBank;
+    CACHE_SALDO_TUNAI = saldoTunai;
+
+    trRows += `
+      <tr style="font-weight:bold; background-color:#f8f9fa;">
+        <td colspan="5" class="text-center">JUMLAH</td>
+        <td class="text-end">${fmt(totalMasuk)}</td>
+        <td class="text-end">${fmt(totalKeluar)}</td>
+        <td class="text-end">${fmt(saldo)}</td>
+      </tr>`;
+
+    let kepsek = "", nipK = "", ben = "", nipB = "", lokasi = "";
+    if(window.TTD_BKU) {
+      kepsek = window.TTD_BKU.kepsek || ""; nipK = window.TTD_BKU.nipKepsek || "";
+      ben = window.TTD_BKU.bendahara || ""; nipB = window.TTD_BKU.nipBendahara || "";
+      
+      let rawLokasi = f.lokasi; 
+      let kecamatanOnly = rawLokasi; 
+      if (rawLokasi.includes(",")) {
+         const parts = rawLokasi.split(",");
+         if (parts.length > 1) kecamatanOnly = parts[1].trim(); 
+      }
+      lokasi = `${kecamatanOnly}, ${tglCetakTTD}`; 
+    }
+
+    const finalHTML = `
+      <div id="print-bku-wrapper">
+        <style>
+          @page { 
+            size: A4 landscape; 
+            margin: 15mm 5mm 5mm 5mm; 
+          }
+          
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact; }
+          
+          #print-bku-wrapper { font-family: 'Arial', sans-serif; color: black; width: 100%; font-size: 8pt; }
+          .header-title { text-align: center; text-transform: uppercase; font-weight: bold; margin-bottom: 10px; }
+          .header-title h1 { font-size: 11pt; text-decoration: underline; margin: 0 0 2px 0; }
+          .header-title h2 { font-size: 9pt; margin: 0; font-weight: bold; }
+          
+          .header-info { width: 100%; margin-bottom: 5px; position: relative; font-size: 8pt;}
+          .header-info td { vertical-align: top; padding: 1px 0; font-weight: bold; }
+          /* [SENIOR FIX] Perlebar label-cell agar Kabupaten / Kota tidak turun menjadi dua baris */
+          .label-cell { width: 130px; white-space: nowrap; }
+          .box-bku { position: absolute; top: 0; right: 0; border: 2px solid black; padding: 2px 8px; font-weight: bold; font-size: 9pt; }
+          
+          .tbl-bku { width: 100%; border-collapse: collapse; table-layout: fixed; }
+          .tbl-bku th, .tbl-bku td { border: 1px solid black; padding: 2px 3px; word-wrap: break-word; vertical-align: middle !important; }
+          .tbl-bku tr { page-break-inside: avoid; break-inside: avoid; }
+          .thead-text th { text-align: center; font-weight: bold; background-color: #fff; border-bottom: none; font-size: 8pt; }
+          .col-number td { text-align: center; font-style: italic; background-color: #ddd; font-weight: bold; border-top: 1px solid black; font-size: 7pt; }
+          
+          .text-center { text-align: center; } 
+          .text-end { text-align: right; } 
+          .fw-bold { font-weight: bold; }
+          
+          .closing-block { page-break-inside: avoid; margin-top: 10px; }
+          
+          @media print {
+            body > *:not(#print-area) { display: none !important; }
+            #print-area { display: block !important; position: absolute; top: 0; left: 0; width: 100%; }
+            .tbl-header-wrapper { page-break-after: avoid; }
+            thead { display: table-header-group; } 
+          }
+        </style>
+
+        <div class="header-title">
+          <h1><strong>BUKU KAS UMUM</strong></h1>
+          <h2>BULAN : ${f.periode.toUpperCase()}</h2>
+        </div>
+
+        <div class="header-info">
+          <div class="box-bku">BKU</div>
+          <table style="width: 100%;">
+             <tr><td class="label-cell">NPSN</td><td style="width:10px;">:</td><td>${f.npsn}</td></tr>
+             <tr><td class="label-cell">Nama Sekolah</td><td>:</td><td>${f.namaSekolah}</td></tr>
+             <tr><td class="label-cell">Desa/Kecamatan</td><td>:</td><td>${f.lokasi}</td></tr>
+             <tr><td class="label-cell">Kabupaten / Kota</td><td>:</td><td>${f.kabupaten}</td></tr>
+             <tr><td class="label-cell">Provinsi</td><td>:</td><td>${f.provinsi}</td></tr>
+             <tr><td class="label-cell">Sumber Dana</td><td>:</td><td>${f.sumberDana}</td></tr>
+          </table>
+        </div>
+
+        <table class="tbl-bku tbl-header-wrapper" style="margin-top: 5px;">
+          <thead class="thead-text">
+            <tr>
+              <th width="8%">TANGGAL</th>
+              <th width="7%">KODE<br>KEGIATAN</th>
+              <th width="11%">KODE<br>REKENING</th>
+              <th width="7%">NO. BUKTI</th>
+              <th width="37%">URAIAN</th>
+              <th width="10%">PENERIMAAN</th>
+              <th width="10%">PENGELUARAN</th>
+              <th width="10%">SALDO</th>
+            </tr>
+          </thead>
+        </table>
+
+        <table class="tbl-bku" style="margin-top: -1px;">
+          <thead>
+            <tr class="col-number">
+               <td width="8%">1</td>
+               <td width="7%">2</td>
+               <td width="11%">3</td>
+               <td width="7%">4</td>
+               <td width="37%">5</td>
+               <td width="10%">6</td>
+               <td width="10%">7</td>
+               <td width="10%">8</td>
+            </tr>
+          </thead>
+          <tbody>
+            ${trRows}
+          </tbody>
+        </table>
+
+        <div class="closing-block">
+            <div style="margin-top: 10px; font-size: 8pt;">
+              <p>Pada hari ini ${tglCetakParagraf} Buku Kas Umum Ditutup dengan keadaan/posisi buku sebagai berikut :</p>
+              
+              <table style="margin-left: 20px; width: 330px; font-weight: bold;">
+                <tr>
+                  <td width="180">Saldo Buku Kas Umum</td>
+                  <td width="15">:</td>
+                  <td width="25">Rp.</td>
+                  <td align="right">${fmtStrict(saldo)}</td>
+                </tr>
+                <tr>
+                  <td colspan="4" style="font-weight: normal; padding-top: 4px;">Terdiri Dari :</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: normal; font-style: italic;">- Saldo Bank</td>
+                  <td style="font-weight: normal;">:</td>
+                  <td style="font-weight: normal;">Rp.</td>
+                  <td align="right">${fmtStrict(saldoBank)}</td>
+                </tr>
+                <tr>
+                  <td style="font-weight: normal; font-style: italic;">- Saldo Kas Tunai</td>
+                  <td style="font-weight: normal;">:</td>
+                  <td style="font-weight: normal;">Rp.</td>
+                  <td align="right">${fmtStrict(saldoTunai)}</td>
+                </tr>
+                <tr>
+                  <td style="padding-top:4px; border-top: 1px solid black;">Jumlah</td>
+                  <td style="padding-top:4px; border-top: 1px solid black;">:</td>
+                  <td style="padding-top:4px; border-top: 1px solid black;">Rp.</td>
+                  <td style="padding-top:4px; border-top: 1px solid black;" align="right">${fmtStrict(saldo)}</td>
+                </tr>
+              </table>
+              
+            </div>
+
+            <table style="width: 100%; margin-top: 25px; border: none; font-size: 8pt;">
+              <tr>
+                <td width="50%" class="text-center">
+                  Menyetujui,<br>Kepala Sekolah<br><br><br><br>
+                  <strong>${kepsek}</strong><br>NIP. ${nipK}
+                </td>
+                <td width="50%" class="text-center">
+                  ${lokasi}<br>Bendahara,<br><br><br><br>
+                  <strong>${ben}</strong><br>NIP. ${nipB}
+                </td>
+              </tr>
+            </table>
+        </div>
+      </div>
+    `;
+
+    HTML_SIAP_CETAK = finalHTML;
+    document.getElementById('preview-content-bku').innerHTML = finalHTML;
+    document.getElementById('bku-result-section').style.display = 'block';
+    
+    document.getElementById('btn-ambil-saldo').disabled = false;
+
+    const resultSection = document.getElementById('bku-result-section');
+    if (resultSection) resultSection.scrollIntoView({ behavior: "smooth" });
+    
+    if(typeof showSuccess === 'function') showSuccess("Preview Diperbarui!");
+
+  } catch (error) {
+    console.error("Critical Error during Preview Generation:", error);
+    if(typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'error',
+          title: 'Kesalahan Sistem',
+          text: 'Terjadi kegagalan saat memproses data. Pastikan format tabel sesuai standar BKU.',
+          footer: `<small class="text-danger">${error.message}</small>`
+        });
+    } else {
+        alert("Terjadi kesalahan: " + error.message);
+    }
+  }
+}
+
+function eksekusiCetakBKU() {
+  if (!HTML_SIAP_CETAK) return;
+  const area = document.getElementById('print-area');
+  
+  if(!area) {
+     if(typeof Swal !== 'undefined') Swal.fire('Error', 'Elemen <div id="print-area"></div> tidak ditemukan di Body HTML Anda!', 'error');
+     else alert('Error: Elemen print-area tidak ditemukan!');
+     return;
+  }
+  
+  area.innerHTML = HTML_SIAP_CETAK;
+  
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  });
+}
+
+function parseExcelTSV(str) {
+  try {
+    const result = [];
+    let row = [''];
+    let inQuotes = false;
+    let i = 0;
+    while (i < str.length) {
+      const char = str[i];
+      const next = str[i+1];
+      if (char === '"') {
+        if (inQuotes && next === '"') { row[row.length - 1] += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (char === '\t' && !inQuotes) row.push('');
+      else if (char === '\n' && !inQuotes) { result.push(row); row = ['']; }
+      else if (char !== '\r') row[row.length - 1] += char;
+      i++;
+    }
+    if (row.length > 1 || row[0] !== '') result.push(row);
+    return result;
+  } catch (err) {
+    console.error("TSV Parser Error:", err);
+    throw new Error("Gagal memecah format data Excel. Silakan periksa kembali tabel yang di-copy.");
+  }
+}
+</script>

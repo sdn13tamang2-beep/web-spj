@@ -1,0 +1,204 @@
+<div id="page-kuitansi-umum" class="page-section" style="display:none;">
+  <div class="card shadow-sm mb-4">
+    <div class="card-header-custom d-flex justify-content-between align-items-center bg-white p-3">
+      <div class="card-title mb-0"><i class="fas fa-receipt me-2 text-primary"></i> Kuitansi ATK DLL</div>
+      <button type="button" class="btn btn-success fw-bold" onclick="prosesCetakKuitansiUmum()">
+        <i class="fas fa-print me-2"></i> Cetak Kuitansi
+      </button>
+    </div>
+    <div class="card-body">
+      <form id="formKuitansiUmum">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Nomor BPU</label>
+            <input type="text" class="form-control" name="noBpu" id="inputNoBpu">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Kode Rekening Kegiatan</label>
+            <input type="text" class="form-control" name="kodeRek" id="inputKodeRek">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-bold">Tanggal Kuitansi</label>
+            <input type="date" class="form-control" name="tglKuitansi" id="tglKuitansiUmum">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Nama Penerima / Pembayar</label>
+            <input type="text" class="form-control" name="penerima" placeholder="Ketik nama di sini...">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Jumlah Uang (Angka)</label>
+            <div class="input-group">
+              <span class="input-group-text">Rp</span>
+              <input type="number" class="form-control fw-bold" name="jumlah" id="inputJumlah" oninput="updateTerbilangRapi()">
+            </div>
+          </div>
+          
+          <div class="col-md-12">
+            <label class="form-label small fw-bold text-primary">Terbilang (Otomatis)</label>
+            <textarea class="form-control bg-light fw-bold" id="displayTerbilang" readonly rows="1" style="font-style: italic;"></textarea>
+          </div>
+
+          <div class="col-md-12">
+            <label class="form-label small fw-bold">Untuk Pembayaran</label>
+            <textarea class="form-control" name="uraian" rows="2" placeholder="Uraian pembayaran..."></textarea>
+          </div>
+          <div class="col-md-12">
+            <label class="form-label small fw-bold">Sumber Dana (Dibebankan Pada)</label>
+            <input type="text" class="form-control" name="sumberDana" id="inputSumberDana">
+          </div>
+
+          <div class="col-md-6 border-end pt-3">
+            <label class="form-label small fw-bold">Kepala Sekolah</label>
+            <input type="text" class="form-control mb-2 fw-bold" name="namaKepsek" id="ksNama">
+            <input type="text" class="form-control small" name="nipKepsek" id="ksNip">
+          </div>
+          <div class="col-md-6 pt-3">
+            <label class="form-label small fw-bold">Bendahara BOS</label>
+            <input type="text" class="form-control mb-2 fw-bold" name="namaBendahara" id="bdNama">
+            <input type="text" class="form-control small" name="nipBendahara" id="bdNip">
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * LOGIKA KUITANSI UMUM FIX [cite: 2026-02-08]
+ */
+
+// 1. PENGISIAN NILAI BAWAAN (DEFAULT VALUES) [cite: 2026-02-08]
+function loadKuitansiUmumData() {
+  const f = document.getElementById('formKuitansiUmum');
+  const s = GLOBAL_MASTER.sekolah;
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Set Tanggal Hari Ini [cite: 2026-02-01]
+  document.getElementById('tglKuitansiUmum').value = today;
+
+  // Set Default Administrasi (Bisa Diedit) [cite: 2026-02-08]
+  document.getElementById('inputNoBpu').value = "BPU ..... / BOS / 2026";
+  document.getElementById('inputKodeRek').value = "5.1.02.02.01.0063";
+  document.getElementById('inputSumberDana').value = "Dana BOS Tahap  Tahun 20";
+
+  if (s) {
+    // Set Pejabat dari Master Data [cite: 2026-02-08]
+    document.getElementById('ksNama').value = s.namaKepsek || "";
+    document.getElementById('ksNip').value = "NIP. " + (s.nipKepsek || "");
+    document.getElementById('bdNama').value = s.namaBendahara || "";
+    document.getElementById('bdNip').value = "NIP. " + (s.nipBendahara || "");
+  }
+}
+
+// 2. TERBILANG RAPI (DENGAN SPASI) [cite: 2026-02-08]
+function updateTerbilangRapi() {
+  const angka = document.getElementById('inputJumlah').value;
+  if (!angka || angka == 0) {
+    document.getElementById('displayTerbilang').value = "";
+    return;
+  }
+  const hasil = helperTerbilangRapi(angka).trim();
+  document.getElementById('displayTerbilang').value = hasil + " Rupiah";
+}
+
+function helperTerbilangRapi(nilai) {
+  nilai = Math.floor(Math.abs(nilai));
+  const bil = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
+  let temp = "";
+  if (nilai < 12) temp = " " + bil[nilai];
+  else if (nilai < 20) temp = helperTerbilangRapi(nilai - 10) + " Belas";
+  else if (nilai < 100) temp = helperTerbilangRapi(Math.floor(nilai / 10)) + " Puluh " + helperTerbilangRapi(nilai % 10);
+  else if (nilai < 200) temp = " Seratus " + helperTerbilangRapi(nilai - 100);
+  else if (nilai < 1000) temp = helperTerbilangRapi(Math.floor(nilai / 100)) + " Ratus " + helperTerbilangRapi(nilai % 100);
+  else if (nilai < 2000) temp = " Seribu " + helperTerbilangRapi(nilai - 1000);
+  else if (nilai < 1000000) temp = helperTerbilangRapi(Math.floor(nilai / 1000)) + " Ribu " + helperTerbilangRapi(nilai % 1000);
+  else if (nilai < 1000000000) temp = helperTerbilangRapi(Math.floor(nilai / 1000000)) + " Juta " + helperTerbilangRapi(nilai % 1000000);
+  
+  return temp.replace(/\s+/g, ' '); // Menjamin satu spasi [cite: 2026-02-08]
+}
+
+// 3. PENGATURAN MARGIN INTERNAL [cite: 2026-02-08]
+function prosesCetakKuitansiUmum() {
+  const mT = "15mm", mR = "10mm", mB = "10mm", mL = "25mm"; 
+
+  const f = document.getElementById('formKuitansiUmum');
+  const s = GLOBAL_MASTER.sekolah;
+  const area = document.getElementById('print-area');
+  
+  const val = (name) => f[name].value || "";
+  const rp = (n) => "Rp " + new Intl.NumberFormat('id-ID').format(n || 0);
+
+  const d = val('tglKuitansi').split('-');
+  const bln = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+  const tglIndo = d.length === 3 ? `${parseInt(d[2])} ${bln[parseInt(d[1])-1]} ${d[0]}` : "";
+
+  area.innerHTML = `
+    <style>
+      @page { size: A4; margin: 0; }
+      .kuitansi-wrapper {
+        width: 210mm; min-height: 297mm; padding: ${mT} ${mR} ${mB} ${mL};
+        background: white; font-family: 'Times New Roman', serif; font-size: 11pt; color: black;
+      }
+      .kop-header { border-bottom: 4px double black; padding-bottom: 5px; margin-bottom: 15px; position: relative; text-align: center; line-height: 1.2; }
+      .kop-logo { width: 60px; position: absolute; left: 0; top: 0; }
+      .text-center { text-align: center; }
+      .fw-bold { font-weight: bold; }
+      .field-row { display: flex; margin-bottom: 8px; line-height: 1.4; }
+      .field-label { width: 140px; flex-shrink: 0; }
+      .terbilang-container { border: 2px solid black; padding: 10px; font-weight: bold; font-style: italic; background: #f2f2f2; flex-grow: 1; margin-left: 10px; }
+      .banyaknya-box { border: 1px solid black; padding: 10px 15px; display: inline-block; font-weight: bold; font-size: 13pt; margin-top: 15px; }
+    </style>
+    <div class="kuitansi-wrapper">
+      <div class="kop-header">
+        ${s.idLogo ? `<img src="https://drive.google.com/thumbnail?id=${s.idLogo}&sz=w200" class="kop-logo">` : ''}
+        <div style="font-size: 12pt;">${s.kop1}</div>
+        <div style="font-size: 12pt;">${s.kop2}</div>
+        <div style="font-size: 18pt; font-weight: bold;">${s.kop3}</div>
+        <div style="font-size: 9pt; font-style: italic;">${s.kop4}</div>
+        <div style="font-size: 9pt;">${s.kop5}</div>
+      </div>
+
+      <div class="text-center fw-bold" style="font-size: 14pt; text-decoration: underline; margin-top: 10px;">KUITANSI</div>
+      <div class="text-center mb-4">No. ${val('noBpu')}</div>
+
+      <div class="field-row"><div class="field-label">Kode Rek Kegiatan</div><div>: ${val('kodeRek')}</div></div>
+      <div class="field-row"><div class="field-label">Telah Terima Dari</div><div class="fw-bold">: Bendahara ${s.namaSekolah}</div></div>
+      <div class="field-row" style="align-items: center;">
+        <div class="field-label">Terbilang</div>
+        <div>: </div>
+        <div class="terbilang-container"># ${document.getElementById('displayTerbilang').value} #</div>
+      </div>
+      <div class="field-row"><div class="field-label">Untuk Pembayaran</div><div style="flex:1; text-align: justify;">: ${val('uraian')}</div></div>
+      <div class="field-row"><div class="field-label">Dibebankan Pada</div><div>: ${val('sumberDana')}</div></div>
+
+      <div class="banyaknya-box"> Banyaknya : ${rp(val('jumlah'))} </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+        <div style="width: 250px; text-align: left;">
+          ${s.tempatSekolah}, ${tglIndo}<br>Yang Menerima / Yang Membayar<br><br><br><br><br>
+          <div class="fw-bold" style="text-decoration: underline; text-align: center;">${val('penerima')}</div>
+        </div>
+      </div>
+
+      <div style="border-bottom: 1px solid #ccc; margin: 30px 0;"></div>
+
+      <div style="display: flex; justify-content: space-between;">
+        <div style="width: 45%; text-align: center;">
+          Setuju dibayar / Mengetahui,<br>Kepala Sekolah<br><br><br><br><br>
+          <div class="fw-bold" style="text-decoration: underline;">${val('namaKepsek')}</div>
+          <div>${val('nipKepsek')}</div>
+        </div>
+        <div style="width: 45%; text-align: center;">
+          Lunas Bayar Tanggal, ${tglIndo}<br>Bendahara BOS<br><br><br><br><br>
+          <div class="fw-bold" style="text-decoration: underline;">${val('namaBendahara')}</div>
+          <div>${val('nipBendahara')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  setTimeout(() => { window.print(); area.innerHTML = ""; }, 1000);
+}
+</script>
