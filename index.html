@@ -723,12 +723,12 @@
     </div>
 
     
-    <?!= include('page_pengantar'); ?>
-    <?!= include('page_honor'); ?>
-    <?!= include('page_kuitansi_umum'); ?>
-    <?!= include('page_lampiran'); ?>
-    <?!= include('page_bku'); ?>
-    <?!= include('page_sptjm'); ?>
+    <?!= include('frontend/pages/pengantar'); ?>
+    <?!= include('frontend/pages/honor'); ?>
+    <?!= include('frontend/pages/kuitansi_umum'); ?>
+    <?!= include('frontend/pages/lampiran'); ?>
+    <?!= include('frontend/pages/bku'); ?>
+    <?!= include('frontend/pages/sptjm'); ?>
   </div> <div id="print-area"></div>
 
   <div class="modal fade" id="modalPilihCetak" tabindex="-1">
@@ -860,8 +860,12 @@ Ahmad Dani      1988-12-01    198812012010011005    Pembina        Kepala Sekola
   </div>
     
   
-  <?!= include('page_pengantar_js'); ?>
-  <?!= include('page_honor_js'); ?>
+  <?!= include('frontend/pages/pengantar_js'); ?>
+  <?!= include('frontend/pages/honor_js'); ?>
+  <?!= include('frontend/pages/kuitansi_umum_js'); ?>
+  <?!= include('frontend/pages/lampiran_js'); ?>
+  <?!= include('frontend/pages/bku_js'); ?>
+  <?!= include('frontend/pages/sptjm_js'); ?>
   <?!= include('frontend/core/app_js'); ?>
 </body>
 </html>
