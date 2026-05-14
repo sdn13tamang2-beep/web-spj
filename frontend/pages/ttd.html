@@ -1,0 +1,65 @@
+    <div id="page-ttd" class="page-section" style="display:none;">
+      <div class="card">
+        <div class="card-header-custom">
+          <div class="card-title"><i class="fas fa-signature me-2"></i> Pejabat Penandatangan Visum</div>
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalTTD">
+            <i class="fas fa-plus me-2"></i> Tambah Pejabat
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-info small py-2 mb-3 border-0 bg-light text-secondary">
+            <i class="fas fa-info-circle me-1"></i> Data ini akan muncul di dropdown saat memilih siapa yang menandatangani SPPD/Visum.
+          </div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Nama Pejabat</th>
+                  <th>NIP</th>
+                  <th>Jabatan</th>
+                  <th width="10%" class="text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tabel-ttd-body">
+                <tr>
+                  <td colspan="4" class="text-center">Memuat data...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="modalTTD" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Tambah Pejabat TTD</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form onsubmit="handleSimpanTTD(event)">
+            <input type="hidden" name="nipLama" id="nipLamaTTD">
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label small">Nama Lengkap</label>
+                <input type="text" name="namaTTD" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label small">NIP</label>
+                <input type="text" name="nipTTD" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label small">Jabatan</label>
+                <input type="text" name="jabatanTTD" class="form-control" placeholder="Contoh: Camat Nanga Mahap" required>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+              <button type="submit" class="btn btn-primary">Simpan</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+

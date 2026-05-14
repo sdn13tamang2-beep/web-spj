@@ -1,0 +1,96 @@
+    <div id="page-guru" class="page-section" style="display:none;">
+      <div class="card">
+        <div class="card-header-custom">
+          <div class="card-title"><i class="fas fa-chalkboard-user me-2"></i> Data Guru & Staff</div>
+          <button id="btnHapusMasal" class="btn btn-sm btn-danger me-2" style="display:none;" onclick="konfirmasiHapusMasal()">
+            <i class="fas fa-trash-alt me-1"></i> Hapus (<span id="countHapus">0</span>)
+          </button>
+
+          <button class="btn btn-sm btn-success me-1" onclick="bukaModalImport()">
+            <i class="fas fa-file-excel me-2"></i> Import Excel
+          </button>
+
+          <button class="btn btn-sm btn-primary" onclick="bukaModalGuruBaru()">
+            <i class="fas fa-plus me-2"></i> Tambah Baru
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th width="5%" class="text-center">
+                    <input type="checkbox" id="checkAllGuru" class="form-check-input" onclick="toggleAllGuru(this)">
+                  </th>
+                  <th width="5%" class="text-center">No</th>
+                  <th width="25%">Nama Lengkap</th>
+                  <th width="20%">NIP</th>
+                  <th width="15%">Pangkat/Gol.</th>
+                  <th width="15%">Keterangan</th>
+                  <th width="10%" class="text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tabel-guru-body">
+                <tr>
+                  <td colspan="6" class="text-center">Memuat data...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="modalGuru" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Tambah Guru / Staff</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form id="formGuru" onsubmit="handleSimpanGuru(event)">
+            <input type="hidden" name="idGuru" id="idGuruHidden">
+
+            <div class="modal-body">
+              <div class="mb-2">
+                <label class="form-label small">Nama Lengkap (Gelar)</label>
+                <input type="text" class="form-control" name="namaGuru" required>
+              </div>
+              <div class="row">
+                <div class="col-6 mb-2">
+                  <label class="form-label small">Tanggal Lahir</label>
+                  <input type="date" class="form-control" name="tglLahirGuru" required>
+                </div>
+                <div class="col-6 mb-2">
+                  <label class="form-label small">NIP (WAJIB ADA)</label>
+                  <input type="text" class="form-control" name="nipGuru" placeholder="NIP / NIK / No Urut" required>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-6 mb-2">
+                  <label class="form-label small">Pangkat / Golongan</label>
+                  <input type="text" class="form-control" name="pangkatGuru" placeholder="Penata Muda / IIIa">
+                </div>
+                <div class="col-6 mb-2">
+                  <label class="form-label small">Keterangan</label>
+                  <select class="form-select" name="jenisGuru">
+                    <option value="Guru Kelas">Guru Kelas</option>
+                    <option value="Guru Mapel">Guru Mapel</option>
+                    <option value="Kepala Sekolah">BK</option>
+                    <option value="Staff">Staff / Tendik</option>
+                    <option value="Siswa">Siswa</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </div>
+              </div>
+
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+              <button type="submit" class="btn btn-primary" id="btnSimpanGuru">Simpan Data</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+

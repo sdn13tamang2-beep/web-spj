@@ -1,0 +1,228 @@
+    <div id="page-input" class="page-section" style="display:none;">
+
+      <div id="view-surat-tabel">
+        <div class="card">
+          <div class="card-header-custom">
+            <div class="card-title"><i class="fas fa-envelope-open-text me-2"></i> Arsip Surat Keluar</div>
+            <button class="btn btn-primary" onclick="bukaFormSurat()">
+              <i class="fas fa-plus-circle me-2"></i> Buat Surat Baru
+            </button>
+          </div>
+          <div class="card-body">
+
+            <div class="row mb-3">
+              <div class="col-md-4 ms-auto">
+                <div class="d-flex gap-2 align-items-center">
+                  <input type="text" class="form-control form-control-sm" placeholder="Cari Nomor / Tujuan..." onkeyup="filterTabelSurat(this)">
+                  <button class="btn btn-sm btn-outline-success rounded-circle" onclick="refreshArsip(this)" title="Refresh Tabel">
+                    <i class="fas fa-sync-alt"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover table-bordered align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th width="5%" class="text-center">No</th>
+                    <th width="10%">Jenis Surat</th>
+                    <th width="15%">Nomor / Tanggal</th>
+                    <th width="15%">Yang Diperintah</th>
+                    <th width="20%">Dasar Surat</th>
+                    <th width="20%">Keperluan</th>
+                    <th width="15%" class="text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="tabel-arsip-body">
+                  <tr>
+                    <td colspan="6" class="text-center py-4">Memuat data...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3">
+              <small class="text-muted" id="info-halaman">Menampilkan 0-0 dari 0 data</small>
+              <nav>
+                <ul class="pagination pagination-sm mb-0" id="pagination-container">
+                </ul>
+              </nav>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div id="view-surat-form" style="display:none;">
+        <div class="card border-primary">
+          <div class="card-header-custom bg-white border-bottom">
+            <div class="d-flex align-items-center">
+              <button class="btn btn-sm btn-secondary me-3" onclick="tutupFormSurat()">
+                <i class="fas fa-arrow-left"></i> Kembali
+              </button>
+              <h5 class="mb-0 text-primary"><i class="fas fa-pen-fancy me-2"></i> Form Input Surat</h5>
+
+              <button class="btn btn-sm btn-outline-danger ms-3 rounded-circle" onclick="resetFormManual()" title="Kosongkan Form">
+                <i class="fas fa-eraser"></i>
+              </button>
+
+              <button class="btn btn-sm btn-outline-success ms-2 rounded-circle" onclick="refreshInputForm()" title="Update Data Master (Tanpa Hapus Isi)">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            </div>
+
+            <div class="d-flex gap-3 align-items-center">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="checkST" checked disabled>
+                <label class="form-check-label small fw-bold">Surat Tugas</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="checkSPPD" onchange="toggleSPPD()">
+                <label class="form-check-label small fw-bold text-primary">Paket SPPD</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <form id="formSurat" onsubmit="handleSimpanSurat(event)">
+              <input type="hidden" name="idEdit" id="idEdit">
+
+              <h6 class="text-primary border-bottom pb-2 mb-3">A. Data Surat</h6>
+              <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                  <label class="form-label small">Jenis Surat</label>
+                  <select class="form-select" name="kodeJenis" id="dropdownJenis" required>
+                    <option value="">- Pilih -</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">Nomor Surat</label>
+                  <input type="text" class="form-control" name="nomorSurat" value="400.3.5 /.. / SD-../" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">Tanggal Surat</label>
+                  <input type="date" class="form-control" name="tglSurat" required>
+                </div>
+
+                <div class="col-md-12">
+                  <label class="form-label small">Dasar Surat</label>
+                  <textarea class="form-control" name="dasarSurat" rows="2" placeholder="Contoh: Peraturan Bupati No..." required></textarea>
+                </div>
+                <div class="col-md-12">
+                  <label class="form-label small">Keperluan / Untuk</label>
+                  <textarea class="form-control" name="keperluan" rows="2" placeholder="Contoh: Mengikuti Kegiatan KKG..." required oninput="autoFillPembayaran(this)"></textarea>
+                </div>
+              </div>
+
+              <h6 class="text-primary border-bottom pb-2 mb-3">B. Personil yang Ditugaskan</h6>
+              <div class="alert alert-light border small py-2 mb-2">
+                <i class="fas fa-info-circle me-1"></i> Orang pertama otomatis dianggap sebagai <b>Ketua</b>.
+              </div>
+              <div id="container-personil"></div>
+              <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addPersonilRow()">
+                <i class="fas fa-plus me-1"></i> Tambah Pengikut
+              </button>
+
+              <div id="blok-perjalanan" class="mt-4" style="display:none;">
+                <h6 class="text-primary border-bottom pb-2 mb-3">C. Waktu & Tempat</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label small">Tempat Berangkat</label>
+                    <input type="text" class="form-control" name="tempatBerangkat" id="inputTempatBerangkat">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small">Tempat Tujuan</label>
+                    <input type="text" class="form-control" name="tempatTujuan">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small">Tanggal Berangkat</label>
+                    <input type="date" class="form-control" name="tglBerangkat" id="tglBerangkat" onchange="hitungLama()">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small">Tanggal Kembali</label>
+                    <input type="date" class="form-control" name="tglKembali" id="tglKembali" onchange="hitungLama()">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small">Lama (Hari)</label>
+                    <input type="text" class="form-control" name="lamaHari" id="lamaHari">
+                  </div>
+                </div>
+              </div>
+
+              <div id="blok-sppd" style="display:none;" class="mt-4">
+                <h6 class="text-primary border-bottom pb-2 mb-3">D. Detail SPPD & Keuangan</h6>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label small">Nomor SPT (Opsional)</label>
+                    <input type="text" class="form-control" name="noSPT" value="400.3.5 /../SD- ../">
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label small">Nomor SPPD</label>
+                    <input type="text" class="form-control" name="nomorSPPD" value="400.3.5 /../SD- ../">
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label small">Alat Angkut</label>
+                    <input type="text" class="form-control" name="alatAngkut" value="Sepeda Motor">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small">Pejabat TTD SPPD</label>
+                    <select class="form-select" name="ttdVisum" id="dropdownTTD"></select>
+                  </div>
+
+                  <div class="col-md-12">
+                    <hr class="my-1">
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label small">Akun Anggaran</label>
+                    <input type="text" class="form-control" name="bebanAnggaran">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small">Untuk Pembayaran</label>
+                    <input type="text" class="form-control" name="untukPembayaran">
+                  </div>
+
+                  <div class="col-md-3">
+                    <label class="form-label small">Uang Harian</label>
+                    <input type="number" class="form-control" name="uangHarian" id="uangHarian" oninput="hitungTotal()" value="0">
+                  </div>
+                  
+                  <div class="col-md-3">
+                    <label class="form-label small">Transport</label>
+                    <input type="number" class="form-control" name="biayaTransport" id="biayaTransport" oninput="hitungTotal()" value="0">
+                  </div>
+                  
+                  <div class="col-md-3">
+                    <label class="form-label small fw-bold text-primary">Akomodasi</label>
+                    <input type="number" class="form-control border-primary" name="biayaAkomodasi" id="biayaAkomodasi" oninput="hitungTotal()" value="0" placeholder="Per Orang">
+                  </div>
+                  
+                  <div class="col-md-3">
+                    <label class="form-label small">Total</label>
+                    <input type="text" class="form-control fw-bold bg-light" id="totalBiaya">
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="form-label small">Tgl Kuitansi</label>
+                    <input type="date" class="form-control" name="tglKuitansi">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small">No Kuitansi</label>
+                    <input type="text" class="form-control" name="noKuitansi" value="BPU ..... / BOS / Tahap .. / ">
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-grid gap-2 mt-5">
+                <button type="submit" class="btn btn-primary btn-lg"><i class="fas fa-save me-2"></i> SIMPAN KE DATABASE</button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>

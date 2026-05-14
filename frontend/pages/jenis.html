@@ -1,0 +1,58 @@
+    <div id="page-jenis" class="page-section" style="display:none;">
+      <div class="card">
+        <div class="card-header-custom">
+          <div class="card-title"><i class="fas fa-folder-open me-2"></i> Referensi Jenis Surat</div>
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalJenis">
+            <i class="fas fa-plus me-2"></i> Tambah Jenis
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th width="20%">Kode / Singkatan</th>
+                  <th>Nama Jenis Surat</th>
+                  <th width="10%" class="text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tabel-jenis-body">
+                <tr>
+                  <td colspan="3" class="text-center">Memuat data...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="modalJenis" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Tambah Jenis Surat</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form onsubmit="handleSimpanJenis(event)">
+            <input type="hidden" name="kodeLama" id="kodeLamaJenis">
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label small">Kode Singkat</label>
+                <input type="text" name="kodeJenis" class="form-control" placeholder="Contoh: KKG-KLS" required>
+                <div class="form-text small">Kode ini untuk memudahkan pencarian/filter nanti.</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label small">Nama Lengkap Jenis</label>
+                <input type="text" name="namaJenis" class="form-control" placeholder="Contoh: Surat Tugas KKG Guru Kelas" required>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+              <button type="submit" class="btn btn-primary">Simpan</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+

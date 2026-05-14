@@ -1,0 +1,108 @@
+    <div id="page-sekolah" class="page-section" style="display:none;">
+      <div class="card">
+        <div class="card-header-custom">
+          <div class="card-title"><i class="fas fa-school me-2"></i> Identitas Sekolah & Kop</div>
+          <div class="d-flex gap-2">
+<button class="btn btn-outline-success" onclick="refreshDataSekolah(this)">
+  <i class="fas fa-sync-alt me-2"></i> Refresh Data
+</button>
+            <button class="btn btn-primary" onclick="prosesSimpanSekolah()">
+              <i class="fas fa-save me-2"></i> Simpan Perubahan
+            </button>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <form id="formSekolah">
+            <div class="row">
+              <div class="col-md-6 border-end">
+                <h6 class="text-primary mb-3">1. Profil Sekolah</h6>
+
+<div class="mb-3">
+  <label class="form-label small fw-bold text-muted">Nama Sekolah</label>
+  <input type="text" class="form-control bg-light" name="namaSekolah" 
+         value="<?= namaSekolahPaten ?>" readonly title="Nama Sekolah dikunci oleh Admin">
+</div>
+
+                <div class="mb-3">
+                  <label class="form-label small fw-bold text-muted">Tempat / Lokasi (Ttitimangsa)</label>
+                  <input type="text" class="form-control" name="tempatSekolah" placeholder="Contoh: Tamang">
+                </div>
+
+                <h6 class="text-primary mt-4 mb-3">2. Data Kepala Sekolah</h6>
+                <div class="row g-2">
+                  <div class="col-12 mb-2">
+                    <label class="form-label small text-muted">Nama Lengkap (Gelar)</label>
+                    <input type="text" class="form-control" name="namaKepsek">
+                  </div>
+                  <div class="col-6 mb-2">
+                    <label class="form-label small text-muted">Jabatan</label>
+                    <input type="text" class="form-control" name="jabatanKepsek" value="Kepala Sekolah">
+                  </div>
+                  <div class="col-6 mb-2">
+                    <label class="form-label small text-muted">NIP</label>
+                    <input type="text" class="form-control" name="nipKepsek">
+                  </div>
+                  <div class="col-md-12 mb-2">
+                    <label class="form-label small text-muted">Pangkat / Golongan</label>
+                    <input type="text" class="form-control" name="pangkatKepsek" placeholder="Contoh: Pembina / IVa">
+                  </div>
+                </div>
+
+                <h6 class="text-primary mt-4 mb-3">3. Data Bendahara</h6>
+                <div class="row g-2">
+                  <div class="col-md-12 mb-2">
+                    <label class="form-label small text-muted">Nama Lengkap</label>
+                    <input type="text" class="form-control" name="namaBendahara">
+                  </div>
+                  <div class="col-md-6 mb-2">
+                    <label class="form-label small text-muted">NIP</label>
+                    <input type="text" class="form-control" name="nipBendahara">
+                  </div>
+                  <div class="col-md-6 mb-2">
+                    <label class="form-label small text-muted">Pangkat / Golongan</label>
+                    <input type="text" class="form-control" name="pangkatBendahara">
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6 ps-md-4">
+                <h6 class="text-primary mb-3">4. Setting Kop Surat</h6>
+                <div class="alert alert-light border small">
+                  <i class="fas fa-info-circle me-1"></i> Isi baris Kop Surat dari paling atas sampai bawah (sebelum garis).
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label small text-muted">Kop Baris 1 (Pemerintah Kab/Kota)</label>
+                  <input type="text" class="form-control text-center fw-bold" name="kop1" placeholder="PEMERINTAH KABUPATEN ...">
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small text-muted">Kop Baris 2 (Dinas)</label>
+                  <input type="text" class="form-control text-center fw-bold" name="kop2" placeholder="DINAS PENDIDIKAN DAN KEBUDAYAAN">
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small text-muted">Kop Baris 3 (Nama Satuan)</label>
+                  <input type="text" class="form-control text-center fw-bold fs-5" name="kop3" placeholder="SD NEGERI ..." readonly>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label small text-muted">Kop Baris 4 (Alamat/Jalan)</label>
+                  <input type="text" class="form-control text-center" name="kop4" placeholder="Jalan ...">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small text-muted">Kop Baris 5 (Email/Kode Pos)</label>
+                  <input type="text" class="form-control text-center" name="kop5" placeholder="Email: ... Kode Pos ...">
+                </div>
+
+                <hr>
+                <div class="mb-3">
+                  <label class="form-label fw-bold small text-muted">ID File Logo Pemda (Google Drive)</label>
+                  <input type="text" class="form-control" name="idLogo" placeholder="Tempel ID File Gambar dari Google Drive disini">
+                  <div class="form-text small">Upload logo ke Google Drive, klik kanan > Share > Copy Link. Ambil ID uniknya saja.</div>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
