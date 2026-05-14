@@ -3,7 +3,7 @@
    Standard: Senior Google Apps Script Developer Protocol
    ========================================================================== */
 
-const DB_CENTRAL_ID = '1bcvOqtJl1O1R5afrQOsyjCGmsn6n9NjDW7qryrQyeIU'; // Backup Legacy
+const DB_CENTRAL_ID = '1s1K3iIOwWMOciZrSRaTLHGcCFo14zEUT3xANF1BiSmk1'; // Backup Legacy
 const CACHE_TTL = 21600; // 6 Jam
 
 /* ==========================================================================
@@ -92,27 +92,7 @@ function _generateJWTToken(config) {
   return tokenData.access_token;
 }
 
-/**
- * Fallback: Ambil token dari hardcoded config (untuk testing)
- * ⚠️ PINDAHKAN KE SCRIPT PROPERTIES UNTUK PRODUCTION!
- */
-function _getFirebaseAccessTokenFromHardcoded() {
-  // Konfigurasi Firebase (dari Service Account JSON)
-  const config = {
-    type: "service_account",
-    project_id: "web-spj",
-    private_key_id: "a9df193d278739b61b3c506d9d83d1ecece7beb2",
-    private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQD/FAFuT9WyqtEX\n2Uby0v40tyw39j0zyISNu/rqfNy3H12Uv6cWYBcJjCtb6UkQ8PO9P776GrZ5YERi\ngBSOyhZLS06gGVgls/8e8bHiMFJ0LYFrx91UmmDaJ2pzQGJ58tvNEaGPeHPUcrBG\nHKntEZPkpo1iaFucUVRctzY/Cfs2oNQSdMTXsB4oCuFzd7c5enUQpU6Sz8G3BkQ8\nPZWTEVI6Wlc6JEo4LuRs9NgejUsWVE/pPpZwc0X9FKJM5agi+2v+lWklq1Dx196o\nb4K+NIfibbDIpP/2ThVqSjMDK6dx1jguJ4uzuByTXHOZY+xHczs2ETutTkjjcnAh\nNygC86tdAgMBAAECggEAEMZUyBeiztlqH0v4HRN69BC2F9G52Xw0GsBpl6lRouRX\n6pFGWykYvWq/q492W+bGAg8yuhluyyF61dHPqEqfd+D9C80m4scz0v846s5b5Hfd\nT+8oqH3vj8vcSwsz/rTrN2ZTrjmmamqxb3xGljMxUJiTFI1BixCT1aDB20Lxh6Mf\nOu9ZlKcHsMihjO4wOmGJj2dSYEIuIILxzOLISQjllxAX/qJsiGuDxeGJ4sFzFUR6\nm5Ry0xoOZZYpZNYytqyLxZ4ITq3CMRVj3TOCLUidqTgXw/PTjr+Ic7Mzuyr+XUQn\nBkD1qOZWtmOL+h6EtHXWYcLIl7qngZyrreFawrmBYQKBgQD/3lw71jnqvzlthLQy\nVoChKv4ZCbf/QWo0SizKAddasRkb3R0wLpzTnXMtefBzhPnl8tq2L3wOwLuPtIaj\nt7JsJkJw+e7aAAc0JXg8hAfCng4lC4EPE3qtWcBWZTchSm1L59Wj07/e7Gk50h3A\ntKQgW81xu7RaMqI3eTDUn6a8vQKBgQD/NYqX00nCviENCr2mKkWyergdr/w18n6R\nS2j0zOA4HSyjH3d2czJu+OsEhPGNlGsbcJziQ+7JSqjLsaoMddKgpnJJVyMlg7YW\nr0EutUeJndxi5Sd+jPDiu2/aw3s2OTz2DRxeX0T2Hl00V/KnAOpUElnxbD0D3/1S\nWQ2eTH2jIQKBgQDH++0NG7Bi6Rkin2EUIwYgcfDucuksCd3PhtYhAXVnvhnI7Ha+\nzP/oahy2w6MLNzj24GzPjqehBETU2h2N4qsC2ph9outr2i/HMy4Z5nwGQfD+RVKX\nDPuKeCbbn/qJ+5kXhdk2Ve+WdiL8fVyh3M6XOAmIRlR9VyvwvblLxojU5QKBgCE5\ngzWI2E12Gy9reo0ra690souK4bbUPw4DV0KneXlUsv75lb/h92rjFRWdiST5cYg8\n/O+oEGo8QgVit9SvciBgCvjpUzYLE6WYY1AFYa7U0mA9nQqopqOd6037rQq+IOWX\nh13x4TR5d4DdAkYjpF4VlYgMo1Th0ETsOw2kv6aBAoGBAMGKATz90QEKrWnbxuTy\nGoTIS8dusf5DWKxEHzmQjUEAX50ccozlQbhWIWe8sC+fHtYUs4JG09VYUjYqOJ0Y\nol9AaDp2WgFhUiBc5Rx2yP5wEgEqh6Z50lKx92xytlKkjIpVyG+uyrSjRzt8KC77\nq10ETbWOP5SsBpeE+hRUYldV\n-----END PRIVATE KEY-----\n",
-    client_email: "gas-spj-access@web-spj.iam.gserviceaccount.com",
-    client_id: "118198300580023056005",
-    auth_uri: "https://accounts.google.com/o/oauth2/auth",
-    token_uri: "https://oauth2.googleapis.com/token",
-    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-    client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x501/gas-spj-access%40web-spj.iam.gserviceaccount.com"
-  };
-  
-  return _generateJWTToken(config);
-}
+
 
 /* ==========================================================================
    FIRESTORE API LAYER
