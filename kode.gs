@@ -1,6 +1,6 @@
 /* ==========================================================================
    MASTER LIBRARY - SISTEM SPJ & KWITANSI OTOMATIS (v4.0 FIREBASE)
-   Standard: Senior Google Apps Script Developer Protocol
+   Standard: Senior Google Apps Script Developer Protocol ok
    ========================================================================== */
 
 const DB_CENTRAL_ID = '1s1K3iIOwWMOciZrSRaTLHGcCFo14zEUT3xANF1BiSmk1'; // Backup Legacy
